@@ -113,7 +113,7 @@ export default function App() {
                 >
                   {ownerName}
                 </p>
-                <span className="text-xs bg-purple-100 px-2 py-0.5 rounded">💜 onverse</span>
+                <span className="text-xs bg-purple-100 px-2 py-0.5 rounded">💜</span>
               </div>
               <p className="text-xs text-gray-500 mt-1">
                 @{ownerUsername} • {ownerTag}
