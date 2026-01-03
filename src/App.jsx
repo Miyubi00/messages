@@ -98,32 +98,59 @@ export default function App() {
       <div className="card-wrapper relative w-full max-w-md rounded-2xl p-[3px] animate-border-rotate">
         <div className="rounded-2xl overflow-hidden bg-gradient-to-b from-white to-[#B4B6F6]">
 
-          {/* BANNER */}
-          <img src="/banner.gif" alt="banner" className="w-full h-32 object-cover" />
+          {/* BANNER + AVATAR */}
+          <div className="relative">
+            <img
+              src="/banner.gif"
+              alt="banner"
+              className="w-full h-32 object-cover"
+            />
 
-          {/* PROFILE */}
-          <div className="flex items-center gap-4 px-6 pt-4">
-            <img src="/avatar.gif" alt="avatar" className="w-24 h-24 rounded-full border bg-white" />
-
+            {/* AVATAR (NAIK KE BANNER) */}
+            <img
+              src="/avatar.gif"
+              alt="avatar"
+              className="
+    absolute
+    -bottom-10
+    left-6
+    w-28 h-28
+    rounded-full
+    border-4 border-white
+    bg-white
+    shadow-lg
+  "
+            />
+          </div>
+          
+          {/* PROFILE TEXT */}
+          <div className="flex items-start gap-4 px-6 pt-16">
             <div>
               <div className="flex items-center gap-2">
                 <p
-                  className="text-sm text-purple-600 font-bold drop-shadow-[2px_2px_0_rgba(0,0,0,0.35)] animate-owner-float"
+                  className="
+          text-sm
+          text-purple-600
+          font-bold
+          drop-shadow-[2px_2px_0_rgba(0,0,0,0.35)]
+          animate-owner-float
+        "
                   style={{ fontFamily: "'Press Start 2P', cursive" }}
                 >
                   {ownerName}
                 </p>
-                <span className="text-xs bg-purple-100 px-2 py-0.5 rounded">💜</span>
               </div>
-              <p className="text-xs text-gray-500 mt-1">
+
+              <p className="text-xs text-gray-500 mt-1 animate-owner-float">
                 @{ownerUsername} • {ownerTag}
               </p>
             </div>
           </div>
 
+
           {/* CONTENT */}
-          <div className="px-6 pt-4 pb-6">
-            <h1 className="text-base font-medium mb-5 mt-2 text-purple-600">
+          <div className="px-6 pt-6 pb-6">
+            <h1 className="text-base font-medium mb-2 mt-2 text-purple-600">
               Send Message?
             </h1>
 
