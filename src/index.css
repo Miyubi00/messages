@@ -1,0 +1,192 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ===============================
+   GLOBAL
+================================ */
+
+body {
+  font-family: "Poppins", sans-serif;
+  margin: 0;
+}
+
+/* ===============================
+   OWNER NAME FLOAT (UP–DOWN)
+================================ */
+
+@keyframes ownerFloat {
+  0% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+  100% {
+    transform: translateY(0);
+  }
+}
+
+.animate-owner-float {
+  animation: ownerFloat 2.5s ease-in-out infinite;
+}
+
+/* ===============================
+   ROTATING GRADIENT BORDER
+================================ */
+
+@keyframes borderRotate {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-border-rotate {
+  position: relative;
+  border-radius: 1rem;
+  box-shadow: 0 0 25px rgba(168, 85, 247, 0.6);
+}
+
+
+/* ===============================
+   FLOATING SHAPES BACKGROUND
+================================ */
+
+.bg-shapes {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: -20; /* PASTI di belakang semua */
+}
+
+.shape {
+  position: absolute;
+  opacity: 0.35;
+  filter: blur(0.3px);
+  animation: floatUp linear infinite;
+}
+
+
+/* ===== SHAPES (26px) ===== */
+
+.shape.circle {
+  width: 26px;
+  height: 26px;
+  border-radius: 9999px;
+  background: rgba(197, 18, 152, 0.9);
+}
+
+.shape.square {
+  width: 26px;
+  height: 26px;
+  background: rgba(11, 17, 197, 0.9);
+}
+
+/* Triangle 26px (visual height ≈ 26px) */
+.shape.triangle {
+  width: 0;
+  height: 0;
+  background: none;
+  border-left: 13px solid transparent;
+  border-right: 13px solid transparent;
+  border-bottom: 26px solid rgba(19, 227, 102, 0.8);
+}
+
+/* Cross 26px */
+.shape.cross {
+  width: 26px;
+  height: 26px;
+  position: relative;
+}
+
+.shape.cross::before,
+.shape.cross::after {
+  content: "";
+  position: absolute;
+  background: rgba(190, 162, 22, 0.9);
+}
+
+/* horizontal bar */
+.shape.cross::before {
+  width: 100%;
+  height: 6px;
+  top: 10px; /* (26 - 6) / 2 */
+}
+
+/* vertical bar */
+.shape.cross::after {
+  height: 100%;
+  width: 6px;
+  left: 10px; /* (26 - 6) / 2 */
+}
+
+/* ===== FLOATING ANIMATION ===== */
+
+@keyframes floatUp {
+  from {
+    transform: translateY(110vh) rotate(0deg);
+  }
+  to {
+    transform: translateY(-120vh) rotate(360deg);
+  }
+}
+
+/* ===============================
+   ERROR POPUP (WARNING)
+================================ */
+
+@keyframes errorPop {
+  0% {
+    transform: scale(0.95) translateY(-4px);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1) translateY(0);
+    opacity: 1;
+  }
+}
+
+.error-popup {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(254, 226, 226, 0.95);
+  border: 1px solid #f87171;
+  color: #b91c1c;
+  font-size: 0.875rem;
+  animation: errorPop 0.25s ease-out;
+}
+
+/* ===============================
+   SUCCESS POPUP
+================================ */
+
+@keyframes successPop {
+  0% {
+    transform: scale(0.95) translateY(-4px);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1) translateY(0);
+    opacity: 1;
+  }
+}
+
+.success-popup {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(220, 252, 231, 0.95);
+  border: 1px solid #22c55e;
+  color: #166534;
+  font-size: 0.875rem;
+  animation: successPop 0.25s ease-out;
+}
