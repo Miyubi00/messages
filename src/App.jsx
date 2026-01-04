@@ -437,7 +437,7 @@ export default function App() {
 
             <button
               onClick={send}
-              disabled={loading}
+              disabled={loading || cooldown > 0}
               className="
                 w-full
                 py-3
