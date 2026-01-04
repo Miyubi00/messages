@@ -437,7 +437,7 @@ export default function App() {
 
             <button
               onClick={send}
-              disabled={loading || cooldown > 0}
+              disabled={loading}
               className="
                 w-full
                 py-3
@@ -448,12 +448,9 @@ export default function App() {
                 hover:shadow-[0_0_30px_rgba(168,85,247,0.9)] hover:-translate-y-[1px] duration-300 disabled:opacity-50 disabled:animate-none
               "
             >
-              {cooldown > 0
-                ? `Tunggu ${cooldown}s`
-                : loading
-                  ? "Mengirim..."
-                  : "Kirim"}
+              {loading ? "Mengirim..." : "Kirim"}
             </button>
+
           </div>
         </div>
       </div>
