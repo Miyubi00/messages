@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { FaDiscord } from "react-icons/fa";
 import { SiRoblox } from "react-icons/si";
 
@@ -10,14 +10,15 @@ export default function App() {
   const ownerTag = "They/Was";
   const MAX_NAME = 20;
   const MAX_MESSAGE = 255;
+  const COOLDOWN_SECONDS = 10;
   const ROBLOX_PROFILE_URL = "https://www.roblox.com/id/users/7705382131/profile";
   const DISCORD_PROFILE_URL = "https://discord.com/users/1027921201194082425";
-  // atau: https://discord.com/users/1027921201194082425
 
   // SENDER
   const [senderName, setSenderName] = useState("");
   const [anon, setAnon] = useState(false);
   const [message, setMessage] = useState("");
+  const [cooldown, setCooldown] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
@@ -28,9 +29,25 @@ export default function App() {
     setError("");
   }
 
+  useEffect(() => {
+    if (cooldown <= 0) return;
+
+    const timer = setInterval(() => {
+      setCooldown((c) => c - 1);
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [cooldown]);
+
   async function send() {
     setError("");
     setSuccess(false);
+
+    // 🚫 CEGAH KLIK SAAT COOLDOWN
+    if (cooldown > 0) {
+      setError(`Tunggu ${cooldown} detik sebelum mengirim lagi.`);
+      return;
+    }
 
     if (!anon && !senderName.trim()) {
       setError("Isi nama atau aktifkan mode anonim.");
@@ -54,13 +71,22 @@ export default function App() {
         })
       });
 
+      // ⛔ BACKEND RATE LIMIT
+      if (res.status === 429) {
+        setCooldown(COOLDOWN_SECONDS);
+        setError("Terlalu cepat. Tunggu 10 detik.");
+        return;
+      }
+
       if (!res.ok) throw new Error("Gagal");
 
       setMessage("");
       setSenderName(anon ? "Anonymous" : "");
       setSuccess(true);
 
-      // auto hide success
+      // ⏱️ START COOLDOWN
+      setCooldown(COOLDOWN_SECONDS);
+
       setTimeout(() => setSuccess(false), 3000);
     } catch (e) {
       setError("Gagal mengirim pesan. Coba lagi.");
@@ -68,6 +94,7 @@ export default function App() {
       setLoading(false);
     }
   }
+
 
   const shapes = useMemo(() => {
     const types = ["circle", "square", "triangle", "cross"];
@@ -386,6 +413,12 @@ export default function App() {
               </div>
             )}
 
+            {cooldown > 0 && (
+              <div className="mb-3 text-xs text-yellow-600 text-center">
+                ⏳ Kirim ulang dalam <b>{cooldown}</b> detik
+              </div>
+            )}
+
             {success && (
               <div
                 className="
@@ -404,7 +437,7 @@ export default function App() {
 
             <button
               onClick={send}
-              disabled={loading}
+              disabled={loading || cooldown > 0}
               className="
                 w-full
                 py-3
@@ -415,9 +448,12 @@ export default function App() {
                 hover:shadow-[0_0_30px_rgba(168,85,247,0.9)] hover:-translate-y-[1px] duration-300 disabled:opacity-50 disabled:animate-none
               "
             >
-              {loading ? "Mengirim..." : "Kirim"}
+              {cooldown > 0
+                ? `Tunggu ${cooldown}s`
+                : loading
+                  ? "Mengirim..."
+                  : "Kirim"}
             </button>
-
           </div>
         </div>
       </div>
