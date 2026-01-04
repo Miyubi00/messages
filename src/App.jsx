@@ -1,10 +1,18 @@
 import { useState, useMemo } from "react";
+import { FaDiscord } from "react-icons/fa";
+import { SiRoblox } from "react-icons/si";
+
 
 export default function App() {
   // OWNER
-  const ownerName = "Fuyumi0_0";
+  const ownerName = "Miyubi0_0";
   const ownerUsername = "ceunah0_0";
   const ownerTag = "They/Was";
+  const MAX_NAME = 20;
+  const MAX_MESSAGE = 255;
+  const ROBLOX_PROFILE_URL = "https://www.roblox.com/id/users/7705382131/profile";
+  const DISCORD_PROFILE_URL = "https://discord.com/users/1027921201194082425";
+  // atau: https://discord.com/users/1027921201194082425
 
   // SENDER
   const [senderName, setSenderName] = useState("");
@@ -76,34 +84,68 @@ export default function App() {
   }, []);
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 relative overflow-hidden">
+    <div
+      className="
+        flex overflow-hidden
+        min-h-screen
+        px-4
+        items-center justify-center relative
+      "
+    >
 
       {/* FLOATING SHAPES BACKGROUND */}
-      <div className="bg-shapes">
+      <div
+        className="
+          bg-shapes
+        "
+      >
         {shapes.map((s, i) => (
           <div
             key={i}
-            className={`shape ${s.type}`}
             style={{
               left: `${s.left}%`,
               animationDuration: `${s.duration}s`,
               animationDelay: `${s.delay}s`,
               transform: `translateX(${s.drift}px)`
             }}
+            className={`
+              shape ${s.type}
+            `}
           />
         ))}
       </div>
 
       {/* CARD */}
-      <div className="card-wrapper relative w-full max-w-md rounded-2xl p-[3px] animate-border-rotate">
-        <div className="rounded-2xl overflow-hidden bg-gradient-to-b from-white to-[#B4B6F6]">
+      <div
+        className="
+          w-full max-w-md
+          p-[3px]
+          rounded-2xl
+          animate-border-rotate
+          card-wrapper relative
+        "
+      >
+        <div
+          className="
+            overflow-hidden
+            bg-gradient-to-b from-white to-[#B4B6F6]
+            rounded-2xl
+          "
+        >
 
           {/* BANNER + AVATAR */}
-          <div className="relative">
+          <div
+            className="
+              relative
+            "
+          >
             <img
               src="/banner.gif"
               alt="banner"
-              className="w-full h-32 object-cover"
+              className="
+                object-cover
+                w-full h-32
+              "
             />
 
             {/* AVATAR (NAIK KE BANNER) */}
@@ -111,64 +153,172 @@ export default function App() {
               src="/avatar.gif"
               alt="avatar"
               className="
-    absolute
-    -bottom-10
-    left-6
-    w-28 h-28
-    rounded-full
-    border-4 border-white
-    bg-white
-    shadow-lg
-  "
+                w-28 h-28
+                bg-white
+                rounded-full border-4 border-white
+                shadow-lg
+                absolute -bottom-10 left-6
+              "
             />
           </div>
-          
+
           {/* PROFILE TEXT */}
-          <div className="flex items-start gap-4 px-6 pt-16">
+          <div
+            className="
+              flex
+              px-6 pt-16
+              items-start gap-4
+            "
+          >
             <div>
-              <div className="flex items-center gap-2">
+              <div
+                className="
+                  flex
+                  items-center gap-2
+                "
+              >
                 <p
-                  className="
-          text-sm
-          text-purple-600
-          font-bold
-          drop-shadow-[2px_2px_0_rgba(0,0,0,0.35)]
-          animate-owner-float
-        "
                   style={{ fontFamily: "'Press Start 2P', cursive" }}
+                  className="
+                    text-lg text-purple-600 font-bold
+                    animate-owner-float
+                    drop-shadow-[2px_2px_0_rgba(0,0,0,0.35)]
+                  "
                 >
                   {ownerName}
                 </p>
+
+                {/* ROBLOX ICON */}
+                <a
+                  href={ROBLOX_PROFILE_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  title="Roblox Profile"
+                  className="
+                    flex
+                    w-5 h-5
+                    bg-[#325DF8]
+                    rounded-[3px]
+                    animate-owner-float
+                    items-center justify-center hover:scale-110 transition
+                  "
+                >
+                  <SiRoblox
+                    className="
+                      w-3.5 h-3.5
+                      text-white
+                    "
+                  />
+                </a>
+
               </div>
 
-              <p className="text-xs text-gray-500 mt-1 animate-owner-float">
-                @{ownerUsername} • {ownerTag}
-              </p>
+
+              <div
+                className="
+                  flex
+                  mt-1
+                  animate-owner-float
+                  items-center gap-2
+                "
+              >
+                <p
+                  className="
+                    text-sm text-gray-500
+                  "
+                >
+                  @{ownerUsername} • {ownerTag}
+                </p>
+
+                {/* DISCORD ICON */}
+                <a
+                  href={DISCORD_PROFILE_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  title="Discord"
+                >
+                  <FaDiscord
+                    className="
+                      w-3.5 h-3.5
+                      text-[#5865F2]
+                      opacity-80
+                      hover:opacity-100 hover:scale-110 transition
+                    "
+                  />
+                </a>
+              </div>
+
             </div>
           </div>
 
 
           {/* CONTENT */}
-          <div className="px-6 pt-6 pb-6">
-            <h1 className="text-base font-medium mb-2 mt-2 text-purple-600">
+          <div
+            className="
+              px-6 pt-6 pb-6
+            "
+          >
+            <h1
+              className="
+                mb-1 mt-2
+                text-sm font-medium text-purple-600
+              "
+            >
               Send Message?
             </h1>
 
-            <input
-              type="text"
-              placeholder="Nama anda"
-              value={senderName}
-              disabled={anon}
-              onChange={(e) => {
-                setSenderName(e.target.value);
-                setError("");
-              }}
-              className={`w-full mb-3 p-3 rounded-lg border border-purple-400
-                focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-300
-                ${anon ? "bg-gray-100 text-gray-500" : ""}`}
-            />
+            <div
+              className="
+                mb-3
+                relative
+              "
+            >
+              <input
+                type="text"
+                placeholder="Nama anda"
+                value={senderName}
+                disabled={anon}
+                maxLength={MAX_NAME}
+                onChange={(e) => {
+                  setSenderName(e.target.value);
+                  setError("");
+                }}
+                className={`
+                  w-full
+                  p-3
+                  rounded-lg border border-purple-400
+                  focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-300
+                  ${anon ? "bg-gray-100 text-gray-500" : ""}
+                `}
+              />
 
-            <label className="flex items-center gap-2 mb-4 text-sm cursor-pointer">
+              {/* COUNTER */}
+              {!anon && (
+                <span
+                  className={`
+                    text-xs
+                    absolute bottom-1 right-2
+                    ${senderName.length >= MAX_NAME
+                      ? "text-red-500"
+                      : senderName.length > MAX_NAME - 5
+                        ? "text-yellow-500"
+                        : "text-gray-400"}
+                  `}
+                >
+                  {senderName.length}/{MAX_NAME}
+                </span>
+              )}
+            </div>
+
+            <label
+              className="
+                flex
+                mb-4
+                text-sm
+                cursor-pointer
+                items-center gap-2
+              "
+            >
               <input
                 type="checkbox"
                 checked={anon}
@@ -177,29 +327,77 @@ export default function App() {
               Kirim sebagai anonim
             </label>
 
-            <textarea
-              placeholder="Tulis pesan..."
-              value={message}
-              onChange={(e) => {
-                setMessage(e.target.value);
-                setError("");
-              }}
-              className="w-full h-28 mb-3 p-3 rounded-lg resize-none
-                border border-purple-400
-                focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-300"
-            />
+            <div
+              className="
+                mb-3
+                relative
+              "
+            >
+              <textarea
+                placeholder="Tulis pesan..."
+                value={message}
+                maxLength={MAX_MESSAGE}
+                onChange={(e) => {
+                  setMessage(e.target.value);
+                  setError("");
+                }}
+                className="
+                  w-full h-28
+                  p-3 pb-7
+                  rounded-lg border border-purple-400
+                  resize-none
+                  focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-300
+                "
+              />
+
+
+              {/* COUNTER */}
+              <span
+                className={`
+                  text-xs
+                  pointer-events-none
+                  absolute bottom-3 right-2
+                  ${message.length >= MAX_MESSAGE
+                    ? "text-red-500"
+                    : message.length > MAX_MESSAGE - 20
+                      ? "text-yellow-500"
+                      : "text-gray-400"}
+                `}
+              >
+                {message.length}/{MAX_MESSAGE}
+              </span>
+
+            </div>
 
             {/* ERROR POPUP */}
             {error && (
-              <div className="error-popup mb-3">
-                <span className="text-lg">⚠️</span>
+              <div
+                className="
+                  mb-3
+                  error-popup
+                "
+              >
+                <span
+                  className="
+                    text-lg
+                  "
+                >⚠️</span>
                 <span>{error}</span>
               </div>
             )}
 
             {success && (
-              <div className="success-popup mb-3">
-                <span className="text-lg">✅</span>
+              <div
+                className="
+                  mb-3
+                  success-popup
+                "
+              >
+                <span
+                  className="
+                    text-lg
+                  "
+                >✅</span>
                 <span>Pesan berhasil dikirim!</span>
               </div>
             )}
@@ -208,18 +406,18 @@ export default function App() {
               onClick={send}
               disabled={loading}
               className="
-                w-full py-3 rounded-lg
-                bg-gradient-to-r from-purple-500 to-purple-700
+                w-full
+                py-3
                 text-white font-semibold
-                shadow-[0_0_20px_rgba(168,85,247,0.6)]
-                hover:from-purple-600 hover:to-purple-800
-                hover:-translate-y-[1px]
-                transition-all
-                disabled:opacity-50
+                bg-gradient-to-r from-purple-500 via-fuchsia-500 to-purple-700
+                rounded-lg
+                animate-gradient shadow-[0_0_20px_rgba(168,85,247,0.6)] transition-all
+                hover:shadow-[0_0_30px_rgba(168,85,247,0.9)] hover:-translate-y-[1px] duration-300 disabled:opacity-50 disabled:animate-none
               "
             >
               {loading ? "Mengirim..." : "Kirim"}
             </button>
+
           </div>
         </div>
       </div>
