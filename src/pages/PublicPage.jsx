@@ -357,9 +357,9 @@ export default function App() {
                 className="
                 flex
                 w-full
-                pt-24 pb-20
+                pt-24 pb-1
                 justify-center
-                md:pt-32 md:pb-28
+                md:pt-32 md:pb-1
               "
             >
 
@@ -716,7 +716,7 @@ export default function App() {
                     ref={messagesRef}
                     className="
                     w-full max-w-md
-                    mt-12 pb-24
+                    mt-1 pb-24
                     md:max-w-4xl
                   "
                 >
