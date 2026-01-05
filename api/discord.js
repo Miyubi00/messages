@@ -30,23 +30,30 @@ export default async function handler(req, res) {
   ipCooldown.set(ip, nowTime);
 
   // ================================
-  // VALIDASI PAYLOAD
+  // VALIDASI PAYLOAD BARU
   // ================================
-  const { name, message } = req.body || {};
+  const { type, sender, content, repliedTo } = req.body || {};
+
+  if (!["message", "reply"].includes(type)) {
+    return res.status(400).json({ error: "Tipe tidak valid" });
+  }
 
   if (
-    typeof message !== "string" ||
-    message.trim().length === 0 ||
-    message.length > 255
+    typeof content !== "string" ||
+    content.trim().length === 0 ||
+    content.length > 255
   ) {
     return res.status(400).json({ error: "Pesan tidak valid" });
   }
 
-  if (name && typeof name !== "string") {
-    return res.status(400).json({ error: "Nama tidak valid" });
+  if (typeof sender !== "string" || sender.trim().length === 0) {
+    return res.status(400).json({ error: "Pengirim tidak valid" });
   }
 
-  const WEBHOOK_URL = process.env.DISCORD_WEBHOOK;
+  // ================================
+  // ENV WEBHOOK
+  // ================================
+  const WEBHOOK_URL = process.env.DISCORD_WEBHOOK_URL;
   if (!WEBHOOK_URL) {
     return res.status(500).json({ error: "Webhook not configured" });
   }
@@ -58,8 +65,11 @@ export default async function handler(req, res) {
     return text.replace(/([\\`*_~|>])/g, "\\$1");
   }
 
-  const safeName = escapeMarkdown(name || "Anonymous");
-  const safeMessage = escapeMarkdown(message);
+  const safeSender = escapeMarkdown(sender);
+  const safeContent = escapeMarkdown(content);
+  const safeRepliedTo = repliedTo
+    ? escapeMarkdown(repliedTo)
+    : null;
 
   // ================================
   // FORMAT WAKTU WIB
@@ -86,6 +96,30 @@ export default async function handler(req, res) {
     wib.getMinutes()
   )}:${pad(wib.getSeconds())} WIB`;
 
+  // ================================
+  // BUILD DISCORD EMBED
+  // ================================
+  let description = "";
+
+if (type === "message") {
+  description =
+    `**💬 Pesan Baru**\n\n` +
+    `**Dari:** ${safeSender}\n\n` +
+    `**Pesan:**\n${safeContent}\n\n` +
+    `**IP:** \`${ip}\``;
+}
+
+if (type === "reply") {
+  description =
+    `**🔁 Reply Baru**\n\n` +
+    `**Dari:** ${safeSender}\n\n` +
+    (safeRepliedTo
+      ? `**Membalas:**\n> ${safeRepliedTo}\n\n`
+      : "") +
+    `**Isi:**\n${safeContent}\n\n` +
+    `**IP:** \`${ip}\``;
+}
+
 
   // ================================
   // SEND TO DISCORD
@@ -97,14 +131,10 @@ export default async function handler(req, res) {
       body: JSON.stringify({
         embeds: [
           {
-            color: 0x5865f2,
-            description:
-              `**Nama:** ${safeName}\n\n` +
-              `**Pesan:**\n${safeMessage}\n\n` +
-              `**IP:** \`${ip}\`\n` +
-              `**Waktu:** ${timeString}`,
+            color: 0x9b5cff,
+            description,
             footer: {
-              text: "Anonymous Message"
+              text: `Anonymous Message • ${timeString}`
             },
             timestamp: now.toISOString()
           }
