@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { FaUserCircle, FaReply } from "react-icons/fa";
+import { supabase } from "../lib/supabase";
 
 const MAX_REPLY = 150;
 
@@ -23,6 +24,7 @@ export default function MessageCard({
   const [replyingTo, setReplyingTo] = useState(null); // null | "message" | replyId
   const [replyText, setReplyText] = useState("");
   const [showReplies, setShowReplies] = useState(false);
+  const [flashNotify, setFlashNotify] = useState(false);
 
   const isMyThread = data.session_id === sessionId;
   const canReplyThread = isOwner || isMyThread;
@@ -40,13 +42,75 @@ export default function MessageCard({
     setReplyingTo(null);
   }
 
+  async function markThreadAsRead() {
+    // 🔔 nyalakan efek sementara (2 detik)
+    setFlashNotify(true);
+    setTimeout(() => setFlashNotify(false), 2000);
+    const ownerReplies = data.replies.filter(
+      r => r.session_id === null
+    );
+
+    if (ownerReplies.length === 0) return;
+
+    // ambil waktu TERBARU yang pasti
+    const latestTime = ownerReplies.reduce(
+      (max, r) =>
+        new Date(r.created_at) > new Date(max)
+          ? r.created_at
+          : max,
+      ownerReplies[0].created_at
+    );
+
+    // simpan ke localStorage
+    const lastSeen = JSON.parse(
+      localStorage.getItem("last_seen_time") || "{}"
+    );
+
+    lastSeen[data.id] = latestTime;
+    localStorage.setItem(
+      "last_seen_time",
+      JSON.stringify(lastSeen)
+    );
+
+    // update DB (opsional)
+    await supabase
+      .from("messages")
+      .update({ is_unread: false })
+      .eq("parent_id", data.id)
+      .eq("session_id", null);
+
+    // update state lokal
+    data.replies.forEach(r => {
+      if (r.session_id === null) r.is_unread = false;
+    });
+    data.hasUnread = false;
+  }
+
+
   return (
-    <div className="bg-white rounded-xl border shadow-sm p-4 space-y-4">
+    <div
+      className={`
+    bg-white rounded-xl border shadow-sm p-4 space-y-4
+    ${(data.hasUnread || flashNotify) ? "ring-2 ring-red-300" : ""}
+  `}
+    >
 
       {/* ================= MAIN MESSAGE ================= */}
       <div>
         <div className="flex justify-between items-center mb-1">
           <div className="flex items-center gap-2">
+            {data.hasUnread && (
+              <span
+                title="Balasan baru"
+                className="
+      ml-1
+      w-2 h-2
+      rounded-full
+      bg-red-500
+      animate-pulse
+    "
+              />
+            )}
             <FaUserCircle className="text-gray-400 text-lg" />
             <span className="text-sm font-medium text-gray-800">
               {data.sender}
@@ -65,9 +129,10 @@ export default function MessageCard({
         <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
           {canReplyThread && (
             <button
-              onClick={() => {
+              onClick={async () => {
+                await markThreadAsRead();
                 setReplyingTo("message");
-                setShowReplies(true); // ✅ UX FIX
+                setShowReplies(true);
               }}
               className="hover:text-purple-600"
             >
@@ -77,7 +142,10 @@ export default function MessageCard({
 
           {data.replies?.length > 0 && (
             <button
-              onClick={() => setShowReplies(v => !v)}
+              onClick={async () => {
+                await markThreadAsRead();
+                setShowReplies(v => !v);
+              }}
               className="text-purple-500 hover:underline"
             >
               {showReplies
@@ -113,15 +181,13 @@ export default function MessageCard({
             {/* REPLY PREVIEW */}
             <div className="flex gap-2 text-xs text-gray-500">
               <div
-                className={`w-[2px] rounded-full ${
-                  isOwnerReply ? "bg-purple-300" : "bg-gray-300"
-                }`}
+                className={`w-[2px] rounded-full ${isOwnerReply ? "bg-purple-300" : "bg-gray-300"
+                  }`}
               />
               <div className="flex-1 min-w-0">
                 <div
-                  className={`flex items-center gap-1 ${
-                    isOwnerReply ? "text-purple-600" : "text-gray-500"
-                  }`}
+                  className={`flex items-center gap-1 ${isOwnerReply ? "text-purple-600" : "text-gray-500"
+                    }`}
                 >
                   <FaReply className="text-[10px]" />
                   <span>
@@ -139,14 +205,12 @@ export default function MessageCard({
               <div className="flex justify-between items-center mb-1">
                 <div className="flex items-center gap-2">
                   <FaUserCircle
-                    className={`text-lg ${
-                      isOwnerReply ? "text-purple-500" : "text-gray-400"
-                    }`}
+                    className={`text-lg ${isOwnerReply ? "text-purple-500" : "text-gray-400"
+                      }`}
                   />
                   <span
-                    className={`text-sm font-medium ${
-                      isOwnerReply ? "text-purple-600" : "text-gray-700"
-                    }`}
+                    className={`text-sm font-medium ${isOwnerReply ? "text-purple-600" : "text-gray-700"
+                      }`}
                   >
                     {reply.sender}
                   </span>
@@ -206,10 +270,9 @@ export default function MessageCard({
           <span
             className={`
               absolute bottom-9 right-3 text-xs
-              ${
-                replyText.length >= MAX_REPLY
-                  ? "text-red-500"
-                  : replyText.length > MAX_REPLY - 20
+              ${replyText.length >= MAX_REPLY
+                ? "text-red-500"
+                : replyText.length > MAX_REPLY - 20
                   ? "text-yellow-500"
                   : "text-gray-400"
               }

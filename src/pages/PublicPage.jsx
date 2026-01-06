@@ -64,13 +64,55 @@ export default function App() {
         fetchMessages();
     }, []);
 
+    useEffect(() => {
+        const channel = supabase
+            .channel("realtime-messages")
+            .on(
+                "postgres_changes",
+                {
+                    event: "*",
+                    schema: "public",
+                    table: "messages"
+                },
+                payload => {
+                    const { eventType, new: newRow, old } = payload;
+
+                    setRows(prev => {
+                        if (eventType === "INSERT") {
+                            // hindari duplikat
+                            if (prev.some(r => r.id === newRow.id)) return prev;
+                            return [...prev, newRow];
+                        }
+
+                        if (eventType === "UPDATE") {
+                            return prev.map(r =>
+                                r.id === newRow.id ? newRow : r
+                            );
+                        }
+
+                        if (eventType === "DELETE") {
+                            return prev.filter(r => r.id !== old.id);
+                        }
+
+                        return prev;
+                    });
+                }
+            )
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
+    }, []);
+
+
     async function fetchMessages() {
         setLoadingMessages(true);
 
         const { data, error } = await supabase
             .from("messages")
             .select("*")
-            .order("created_at", { ascending: true });
+            .order("created_at", { ascending: false });
 
         if (error) {
             console.error(error);
@@ -81,7 +123,7 @@ export default function App() {
         setLoadingMessages(false);
     }
 
-    function buildThreads(data) {
+    function buildThreads(data, sessionId) {
         const map = {};
         const roots = [];
 
@@ -94,6 +136,7 @@ export default function App() {
                 created_at: m.created_at,
                 session_id: m.session_id,
                 parent_id: m.parent_id,
+                is_unread: m.is_unread,
                 replies: []
             };
         });
@@ -122,13 +165,45 @@ export default function App() {
             );
         });
 
+        roots.forEach(r => {
+            const lastSeen = JSON.parse(
+                localStorage.getItem("last_seen_time") || "{}"
+            );
+
+            r.hasUnread =
+                r.session_id === sessionId &&
+                r.replies.some(rep => {
+                    if (rep.session_id !== null) return false; // hanya owner
+                    if (!rep.is_unread) return false;
+
+                    const seenTime = lastSeen[r.id];
+                    if (!seenTime) return true;
+
+                    return new Date(rep.created_at) > new Date(seenTime);
+                });
+        });
+
+        roots.sort((a, b) => {
+            if (a.hasUnread && !b.hasUnread) return -1;
+            if (!a.hasUnread && b.hasUnread) return 1;
+            return new Date(b.created_at) - new Date(a.created_at);
+        });
+
         return roots;
     }
 
     const messages = useMemo(
-        () => buildThreads(rows),
-        [rows]
+        () => buildThreads(rows, sessionId),
+        [rows, sessionId]
     );
+
+    const unreadCount = useMemo(() => {
+        if (!sessionId) return 0;
+
+        return messages.filter(
+            m => m.hasUnread && m.session_id === sessionId
+        ).length;
+    }, [messages, sessionId]);
 
 
     function toggleAnon(value) {
@@ -232,16 +307,6 @@ export default function App() {
         return current;
     }
 
-    function findRootMessage(messageId) {
-        let current = rows.find(m => m.id === messageId);
-
-        while (current && current.parent_id) {
-            current = rows.find(m => m.id === current.parent_id);
-        }
-
-        return current;
-    }
-
     async function handleReply(messageId, text, parentReplyId = null) {
         if (!sessionId) return;
 
@@ -267,7 +332,8 @@ export default function App() {
                 sender_name,
                 content: text,
                 parent_id: parentReplyId ?? messageId,
-                session_id: replySessionId
+                session_id: replySessionId,
+                is_unread: isOwner
             })
             .select()
             .single();
@@ -689,7 +755,18 @@ export default function App() {
                   "
                 >
                     <button
-                        onClick={() => {
+                        onClick={async () => {
+                            await supabase
+                                .from("messages")
+                                .update({ is_unread: false })
+                                .eq("session_id", null)
+                                .in(
+                                    "parent_id",
+                                    messages
+                                        .filter(m => m.session_id === sessionId)
+                                        .map(m => m.id)
+                                );
+
                             setShowMessages(true);
 
                             setTimeout(() => {
@@ -700,12 +777,14 @@ export default function App() {
                             }, 50);
                         }}
                         className="
-                        text-sm text-purple-600 font-medium
-                        animate-pulse
-                        hover:underline
-                      "
+    text-sm text-purple-600 font-medium
+    animate-pulse
+    hover:underline
+  "
                     >
-                        ✨ Lihat pesan
+                        {unreadCount > 0
+                            ? `🔴 ${unreadCount} pesan baru!`
+                            : "✨ Lihat pesan"}
                     </button>
                 </div>
             )}
