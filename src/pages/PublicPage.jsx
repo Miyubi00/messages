@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from "react";
-import { FaDiscord } from "react-icons/fa";
+import { FaDiscord, FaGlobe } from "react-icons/fa";
 import { SiRoblox } from "react-icons/si";
 import MessageCard from "./MessageCard";
 import { supabase } from "../lib/supabase";
@@ -31,6 +31,13 @@ export default function App() {
     const [error, setError] = useState("");
     const [success, setSuccess] = useState(false);
     const [showMessages, setShowMessages] = useState(false);
+    const [showWebPopup, setShowWebPopup] = useState(false);
+    const myWebsites = [
+        { name: "Portfolio Pribadi", url: "https://myportfolio.com" },
+        { name: "Project Chat App", url: "https://mychatapp.com" },
+        { name: "Toko Online Ku", url: "https://myshop.com" },
+        // Tambahkan web lain di sini
+    ];
 
     const [rows, setRows] = useState([]);
     const [loadingMessages, setLoadingMessages] = useState(true);
@@ -525,42 +532,31 @@ export default function App() {
                                     </a>
 
                                 </div>
-
-
-                                <div
-                                    className="
-                                    flex
-                                    mt-1
-                                    animate-owner-float
-                                    items-center gap-2
-                                  "
-                                >
-                                    <p
-                                        className="
-                                        text-sm text-gray-500
-                                      "
-                                    >
+                                <div className="flex mt-1 animate-owner-float items-center gap-2">
+                                    <p className="text-sm text-gray-500">
                                         @{ownerUsername} • {ownerTag}
                                     </p>
 
-                                    {/* DISCORD ICON */}
+                                    {/* DISCORD ICON (YANG LAMA) */}
                                     <a
                                         href={DISCORD_PROFILE_URL}
                                         target="_blank"
                                         rel="noopener noreferrer"
                                         title="Discord"
                                     >
-                                        <FaDiscord
-                                            className="
-                                            w-3.5 h-3.5
-                                            text-[#5865F2]
-                                            opacity-80
-                                            hover:opacity-100 hover:scale-110 transition
-                                          "
-                                        />
+                                        <FaDiscord className="w-3.5 h-3.5 text-[#5865F2] opacity-80 hover:opacity-100 hover:scale-110 transition" />
                                     </a>
-                                </div>
 
+                                    {/* --- ICON WEB BARU (DI SINI) --- */}
+                                    <button
+                                        onClick={() => setShowWebPopup(true)}
+                                        title="My Websites"
+                                        className="focus:outline-none"
+                                    >
+                                        <FaGlobe className="w-3.5 h-3.5 text-emerald-500 opacity-80 hover:opacity-100 hover:scale-110 transition" />
+                                    </button>
+                                    {/* ------------------------------- */}
+                                </div>
                             </div>
                         </div>
 
@@ -879,6 +875,66 @@ export default function App() {
                     </div>
                 </div>
             )}
-        </div>
+            {/* ... kode Messages kamu yang panjang di atas sini ... */}
+
+            {/* --- POPUP DAFTAR WEBSITE --- */}
+            {showWebPopup && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-fade-in">
+                    <div className="bg-white w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden animate-pop-in relative">
+
+                        {/* Header Popup */}
+                        <div className="bg-gradient-to-r from-purple-500 to-fuchsia-500 p-4 flex justify-between items-center">
+                            <h3 className="text-white font-bold text-lg flex items-center gap-2">
+                                <FaGlobe /> Website List
+                            </h3>
+                            <button
+                                onClick={() => setShowWebPopup(false)}
+                                className="text-white/80 hover:text-white font-bold text-xl"
+                            >
+                                ✖
+                            </button>
+                        </div>
+
+                        {/* List Website */}
+                        <div className="p-4 flex flex-col gap-3 max-h-[60vh] overflow-y-auto">
+                            {myWebsites.map((web, idx) => (
+                                <a
+                                    key={idx}
+                                    href={web.url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="
+                                        group flex items-center justify-between
+                                        p-3 rounded-xl border border-gray-100
+                                        hover:bg-purple-50 hover:border-purple-200 hover:shadow-md
+                                        transition-all duration-300
+                                    "
+                                >
+                                    <span className="font-medium text-gray-700 group-hover:text-purple-600">
+                                        {web.name}
+                                    </span>
+                                    <span className="text-gray-300 group-hover:translate-x-1 transition-transform">
+                                        ⮕
+                                    </span>
+                                </a>
+                            ))}
+
+                            {myWebsites.length === 0 && (
+                                <p className="text-center text-gray-400 text-sm py-4">
+                                    Belum ada website yang ditambahkan.
+                                </p>
+                            )}
+                        </div>
+
+                        {/* Footer Kecil */}
+                        <div className="bg-gray-50 p-3 text-center text-[10px] text-gray-400 uppercase tracking-widest">
+                            {ownerName}'s Projects
+                        </div>
+                    </div>
+                </div>
+            )}
+            {/* ---------------------------- */}
+
+        </div> // <--- Ini penutup div utama (App wrapper)
     );
 }
