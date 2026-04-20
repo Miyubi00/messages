@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
-import { supabase } from '../lib/supabase';
+import { supabase } from '../lib/supabase'; // Pastikan path benar!
 
 const getYouTubeID = (url) => {
   if (!url) return null;
@@ -42,29 +42,47 @@ const YouTubePlayer = ({ ytId, startSec, endSec, volume = 15 }) => {
 };
 
 export default function OverlayPage() {
+  // STATE INTERAKSI DIKEMBALIKAN
+  const [hasInteracted, setHasInteracted] = useState(false);
+  
   const [queue, setQueue] = useState([]);
   const [currentAlert, setCurrentAlert] = useState(null);
   const isPlayingRef = useRef(false);
 
-  // MENDENGARKAN TABEL BARU: dummy_donations
+  // MENDENGARKAN SUPABASE (Tabel dummy_donations)
+  // Tetap berjalan di background mengumpulkan data meski belum diklik
+  // MENDENGARKAN SUPABASE (Tabel dummy_donations)
   useEffect(() => {
+    console.log("📡 Mencoba connect ke Supabase Realtime...");
+
     const channel = supabase.channel('public:dummy_donations');
+    
     channel
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'dummy_donations' }, (payload) => {
+        // KITA LOG DULU DATANYA BIAR KETAHUAN MUNCUL ATAU NGGAK
+        console.log("🔥 BOOM! ADA DATA MASUK DARI SUPABASE:", payload);
+        
         if (payload.new.status === 'settlement' || payload.new.status === 'success') {
+          console.log("✅ Status OK, memasukkan ke antrean...");
           setQueue((prev) => [...prev, payload.new]);
+        } else {
+          console.log("❌ Status bukan settlement:", payload.new.status);
         }
       })
-      .subscribe();
+      .subscribe((status) => {
+        // INI PENTING UNTUK NGECEK KONEKSINYA SUKSES ATAU DITOLAK
+        console.log("🔌 Status Koneksi Realtime:", status);
+      });
 
     return () => supabase.removeChannel(channel);
   }, []);
 
+  // PROSES ANTREAN (Hanya jalan jika hasInteracted bernilai TRUE)
   useEffect(() => {
-    if (queue.length > 0 && !isPlayingRef.current) {
+    if (hasInteracted && queue.length > 0 && !isPlayingRef.current) {
       processAlert(queue[0]);
     }
-  }, [queue]);
+  }, [queue, hasInteracted]);
 
   const processAlert = async (donation) => {
     isPlayingRef.current = true;
@@ -76,13 +94,15 @@ export default function OverlayPage() {
         if (parts.length === 3) ytDuration = parseInt(parts[2]) - parseInt(parts[1]); 
     }
     
-    const displayDuration = ytDuration > 0 ? ytDuration * 1000 : 10000;
+    const displayDuration = ytDuration > 0 ? ytDuration * 1000 : 10000; // Default 10 detik
 
+    // Play Sound Effect Anime Wow
     const sfxUrl = 'https://www.myinstants.com/media/sounds/anime-wow-sound-effect.mp3';
     const audio = new Audio(sfxUrl);
     audio.volume = 1.0; 
     audio.play().catch(e => console.error("Gagal play sound:", e));
 
+    // Tunggu animasi selesai
     await new Promise(resolve => setTimeout(resolve, displayDuration));
 
     setCurrentAlert(null);
@@ -92,11 +112,37 @@ export default function OverlayPage() {
     isPlayingRef.current = false;
   };
 
+  // ---------------------------------------------------------
+  // TAMPILAN GERBANG INTERAKSI
+  // ---------------------------------------------------------
+  if (!hasInteracted) {
+    return (
+      <div className="w-screen h-screen bg-slate-900 flex flex-col items-center justify-center p-6">
+        <div className="text-center bg-slate-800 p-10 rounded-3xl border-2 border-red-500 shadow-[0_0_50px_rgba(239,68,68,0.3)] max-w-2xl">
+          <h1 className="text-white text-3xl font-black mb-4">Menunggu Interaksi OBS</h1>
+          <p className="text-slate-400 mb-8 text-lg">
+            Klik Kanan Browser Source di OBS -&gt; Pilih "Interact" -&gt; Lalu klik tombol merah ini.
+          </p>
+          <button 
+            onClick={() => setHasInteracted(true)}
+            className="w-full bg-red-600 hover:bg-red-500 text-white font-bold py-6 px-8 rounded-2xl text-2xl transition-all active:scale-95 animate-pulse shadow-xl"
+          >
+            👆 KLIK UNTUK AKTIFKAN OVERLAY
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // ---------------------------------------------------------
+  // TAMPILAN OVERLAY UTAMA (Setelah diklik)
+  // ---------------------------------------------------------
   if (!currentAlert) return <div className="w-screen h-screen bg-transparent overflow-hidden"></div>;
 
   let ytId = null;
   let startSec = 0;
   let endSec = 0;
+  let isGifOrImage = false;
 
   if (currentAlert.youtube_url) {
       const parts = currentAlert.youtube_url.split('||');
@@ -104,6 +150,9 @@ export default function OverlayPage() {
       if (parts.length === 3 && ytId) {
           startSec = parseInt(parts[1]);
           endSec = parseInt(parts[2]);
+      }
+      if (!ytId && currentAlert.youtube_url.match(/\.(jpeg|jpg|gif|png)$/) != null) {
+          isGifOrImage = true;
       }
   }
 
@@ -115,6 +164,12 @@ export default function OverlayPage() {
           <div className="rounded-2xl overflow-hidden shadow-2xl border-4 border-white/20 mb-4 bg-black w-[450px] aspect-video">
              <YouTubePlayer ytId={ytId} startSec={startSec} endSec={endSec} volume={15} />
           </div>
+        ) : isGifOrImage ? (
+          <img 
+            src={currentAlert.youtube_url.split('||')[0]} 
+            alt="Donation Media" 
+            className="max-w-[300px] max-h-[300px] rounded-2xl shadow-2xl object-cover mb-4"
+          />
         ) : (
           <div className="bg-[#2ce0a6] rounded-xl px-12 py-8 mb-4 shadow-[0_10px_20px_rgba(0,0,0,0.3)] flex flex-col items-center">
             <h1 className="text-white text-6xl font-black tracking-wider shadow-sm" style={{ textShadow: '2px 4px 0px rgba(0,0,0,0.2)' }}>
