@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
-import { supabase } from '../lib/supabase'; // Pastikan path benar!
+import { supabase } from '../lib/supabase';
 
 const getYouTubeID = (url) => {
   if (!url) return null;
@@ -13,18 +13,10 @@ const YouTubePlayer = ({ ytId, startSec, endSec, volume = 15 }) => {
     const initPlayer = () => {
       player = new window.YT.Player('yt-player-container', {
         videoId: ytId,
-        playerVars: {
-          autoplay: 1, controls: 0, start: startSec, end: endSec, modestbranding: 1, rel: 0, disablekb: 1
-        },
-        events: {
-          onReady: (event) => {
-            event.target.setVolume(volume);
-            event.target.playVideo();
-          }
-        }
+        playerVars: { autoplay: 1, controls: 0, start: startSec, end: endSec, modestbranding: 1, rel: 0, disablekb: 1 },
+        events: { onReady: (event) => { event.target.setVolume(volume); event.target.playVideo(); } }
       });
     };
-
     if (!window.YT) {
       const tag = document.createElement('script');
       tag.src = "https://www.youtube.com/iframe_api";
@@ -34,50 +26,33 @@ const YouTubePlayer = ({ ytId, startSec, endSec, volume = 15 }) => {
     } else if (window.YT && window.YT.Player) {
       initPlayer();
     }
-
     return () => { if (player && typeof player.destroy === 'function') player.destroy(); };
   }, [ytId, startSec, endSec, volume]);
-
   return <div id="yt-player-container" className="w-full h-full pointer-events-none"></div>;
 };
 
 export default function OverlayPage() {
-  // STATE INTERAKSI DIKEMBALIKAN
   const [hasInteracted, setHasInteracted] = useState(false);
-  
   const [queue, setQueue] = useState([]);
   const [currentAlert, setCurrentAlert] = useState(null);
   const isPlayingRef = useRef(false);
 
-  // MENDENGARKAN SUPABASE (Tabel dummy_donations)
-  // Tetap berjalan di background mengumpulkan data meski belum diklik
-  // MENDENGARKAN SUPABASE (Tabel dummy_donations)
+  // MENDENGARKAN SUPABASE JALUR VVIP (Tanpa Cek Status)
   useEffect(() => {
-    console.log("📡 Mencoba connect ke Supabase Realtime...");
-
     const channel = supabase.channel('public:dummy_donations');
-    
     channel
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'dummy_donations' }, (payload) => {
-        // KITA LOG DULU DATANYA BIAR KETAHUAN MUNCUL ATAU NGGAK
-        console.log("🔥 BOOM! ADA DATA MASUK DARI SUPABASE:", payload);
-        
-        if (payload.new.status === 'settlement' || payload.new.status === 'success') {
-          console.log("✅ Status OK, memasukkan ke antrean...");
-          setQueue((prev) => [...prev, payload.new]);
-        } else {
-          console.log("❌ Status bukan settlement:", payload.new.status);
-        }
+        console.log("🔥 DATA MASUK DARI SUPABASE!", payload.new);
+        // Langsung masukkan ke antrean tanpa banyak syarat
+        setQueue((prev) => [...prev, payload.new]);
       })
       .subscribe((status) => {
-        // INI PENTING UNTUK NGECEK KONEKSINYA SUKSES ATAU DITOLAK
-        console.log("🔌 Status Koneksi Realtime:", status);
+        console.log("🔌 STATUS REALTIME:", status);
       });
 
     return () => supabase.removeChannel(channel);
   }, []);
 
-  // PROSES ANTREAN (Hanya jalan jika hasInteracted bernilai TRUE)
   useEffect(() => {
     if (hasInteracted && queue.length > 0 && !isPlayingRef.current) {
       processAlert(queue[0]);
@@ -94,15 +69,17 @@ export default function OverlayPage() {
         if (parts.length === 3) ytDuration = parseInt(parts[2]) - parseInt(parts[1]); 
     }
     
-    const displayDuration = ytDuration > 0 ? ytDuration * 1000 : 10000; // Default 10 detik
+    const displayDuration = ytDuration > 0 ? ytDuration * 1000 : 10000;
 
-    // Play Sound Effect Anime Wow
-    const sfxUrl = 'https://www.myinstants.com/media/sounds/anime-wow-sound-effect.mp3';
-    const audio = new Audio(sfxUrl);
-    audio.volume = 1.0; 
-    audio.play().catch(e => console.error("Gagal play sound:", e));
+    try {
+      const sfxUrl = 'https://www.myinstants.com/media/sounds/anime-wow-sound-effect.mp3';
+      const audio = new Audio(sfxUrl);
+      audio.volume = 1.0; 
+      await audio.play();
+    } catch (e) {
+      console.log("Suara diblokir browser, tapi animasi tetap lanjut");
+    }
 
-    // Tunggu animasi selesai
     await new Promise(resolve => setTimeout(resolve, displayDuration));
 
     setCurrentAlert(null);
@@ -112,21 +89,19 @@ export default function OverlayPage() {
     isPlayingRef.current = false;
   };
 
-  // ---------------------------------------------------------
-  // TAMPILAN GERBANG INTERAKSI
-  // ---------------------------------------------------------
+  // TOMBOL TEST MANUAL UNTUK CEK UI
+  const triggerTestAlert = () => {
+    setQueue((prev) => [...prev, {
+      username: "Tester", amount: 69420, message: "Ini tes UI dari tombol lokal!", youtube_url: null
+    }]);
+  };
+
   if (!hasInteracted) {
     return (
       <div className="w-screen h-screen bg-slate-900 flex flex-col items-center justify-center p-6">
-        <div className="text-center bg-slate-800 p-10 rounded-3xl border-2 border-red-500 shadow-[0_0_50px_rgba(239,68,68,0.3)] max-w-2xl">
+        <div className="text-center bg-slate-800 p-10 rounded-3xl border-2 border-red-500 max-w-2xl">
           <h1 className="text-white text-3xl font-black mb-4">Menunggu Interaksi OBS</h1>
-          <p className="text-slate-400 mb-8 text-lg">
-            Klik Kanan Browser Source di OBS -&gt; Pilih "Interact" -&gt; Lalu klik tombol merah ini.
-          </p>
-          <button 
-            onClick={() => setHasInteracted(true)}
-            className="w-full bg-red-600 hover:bg-red-500 text-white font-bold py-6 px-8 rounded-2xl text-2xl transition-all active:scale-95 animate-pulse shadow-xl"
-          >
+          <button onClick={() => setHasInteracted(true)} className="w-full bg-red-600 hover:bg-red-500 text-white font-bold py-6 px-8 rounded-2xl text-2xl transition-all shadow-xl">
             👆 KLIK UNTUK AKTIFKAN OVERLAY
           </button>
         </div>
@@ -134,10 +109,16 @@ export default function OverlayPage() {
     );
   }
 
-  // ---------------------------------------------------------
-  // TAMPILAN OVERLAY UTAMA (Setelah diklik)
-  // ---------------------------------------------------------
-  if (!currentAlert) return <div className="w-screen h-screen bg-transparent overflow-hidden"></div>;
+  // TAMPILAN STANDBY (Dengan tombol Test Kecil di pojok)
+  if (!currentAlert) {
+    return (
+      <div className="w-screen h-screen bg-transparent overflow-hidden relative">
+        <button onClick={triggerTestAlert} className="absolute top-2 left-2 bg-neutral-800 text-white text-xs px-2 py-1 rounded opacity-50 hover:opacity-100 z-50">
+          TEST UI (Klik Saya)
+        </button>
+      </div>
+    );
+  }
 
   let ytId = null;
   let startSec = 0;
@@ -157,7 +138,8 @@ export default function OverlayPage() {
   }
 
   return (
-    <div className="w-screen h-screen bg-transparent flex flex-col items-center justify-end pb-24 overflow-hidden pointer-events-none">
+    // DIUBAH MENJADI TEPAT DI TENGAH LAYAR (justify-center) AGAR TIDAK NYUNGSEP
+    <div className="w-screen h-screen bg-transparent flex flex-col items-center justify-center overflow-hidden pointer-events-none relative">
       <div className="flex flex-col items-center animate-bounce">
         
         {ytId ? (
@@ -165,11 +147,7 @@ export default function OverlayPage() {
              <YouTubePlayer ytId={ytId} startSec={startSec} endSec={endSec} volume={15} />
           </div>
         ) : isGifOrImage ? (
-          <img 
-            src={currentAlert.youtube_url.split('||')[0]} 
-            alt="Donation Media" 
-            className="max-w-[300px] max-h-[300px] rounded-2xl shadow-2xl object-cover mb-4"
-          />
+          <img src={currentAlert.youtube_url.split('||')[0]} alt="Media" className="max-w-[300px] max-h-[300px] rounded-2xl shadow-2xl object-cover mb-4" />
         ) : (
           <div className="bg-[#2ce0a6] rounded-xl px-12 py-8 mb-4 shadow-[0_10px_20px_rgba(0,0,0,0.3)] flex flex-col items-center">
             <h1 className="text-white text-6xl font-black tracking-wider shadow-sm" style={{ textShadow: '2px 4px 0px rgba(0,0,0,0.2)' }}>
@@ -185,7 +163,6 @@ export default function OverlayPage() {
             <span className="text-white mx-2">dari</span>
             <span className="text-[#2bff1a]">{currentAlert.username}</span>
           </h2>
-          
           {currentAlert.message && (
             <p className="text-2xl font-bold text-[#ffeb3b] mt-1 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] max-w-2xl mx-auto">
               {currentAlert.message}
