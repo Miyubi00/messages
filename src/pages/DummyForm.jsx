@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Heart, Send, User, Mail, Play } from 'lucide-react';
+import { Heart, Send, User, Play } from 'lucide-react';
+import { supabase } from '../lib/supabase';
 
 const PRESET_AMOUNTS = [10000, 25000, 50000, 100000, 500000];
 
@@ -13,8 +14,6 @@ export default function DummyForm() {
     const [form, setForm] = useState({
         username: '',
         isAnonymous: false,
-        email: '',
-        hideEmail: false,
         amount: 10000,
         message: '',
         youtube_url: '',
@@ -35,41 +34,45 @@ export default function DummyForm() {
     const durationPreview = amountNum < 10000 ? 10 : 30; 
     const endSecPreview = startSecPreview + durationPreview;
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
         
         if (amountNum < 1000) return alert('Minimal donasi adalah Rp 1.000');
+
+        let ytPayload = '';
+        if (ytId) { 
+            ytPayload = `https://www.youtube.com/watch?v=${ytId}||${startSecPreview}||${endSecPreview}`;
+        }
 
         setLoading(true);
 
         try {
             const finalUsername = form.isAnonymous ? 'Anonymous' : (form.username || 'Hamba Allah');
 
-            // Buka jalur komunikasi ke OBS Overlay
-            const channel = new BroadcastChannel('donasi_dummy_channel');
-            
-            // Kirim data ke OBS (tanpa Supabase/Midtrans)
-            channel.postMessage({
-                nama: finalUsername,
-                nominal: amountNum,
-                pesan: form.message,
-                mediaUrl: form.youtube_url,
-                ytStart: startSecPreview,
-                ytEnd: endSecPreview,
-                duration: durationPreview
-            });
+            // Insert data ke TABEL BARU: dummy_donations
+            const { error } = await supabase
+                .from('dummy_donations')
+                .insert([
+                    { 
+                        username: finalUsername, 
+                        amount: amountNum, 
+                        message: form.message,
+                        youtube_url: ytPayload,
+                        status: 'settlement' 
+                    }
+                ]);
 
-            channel.close();
+            if (error) throw error;
             
-            // Beri feedback visual tanpa me-reload halaman
-            setTimeout(() => {
-                setLoading(false);
-                alert('Berhasil! Cek layar OBS kamu.');
-            }, 500);
+            alert('Dummy Donasi Terkirim ke Layar OBS!');
+            
+            // Reset pesan setelah berhasil (Opsional)
+            setForm(prev => ({ ...prev, message: '', youtube_url: '' }));
 
         } catch (error) {
             console.error(error);
-            alert('Terjadi kesalahan saat mengirim ke OBS.');
+            alert('Gagal mengirim ke Supabase: ' + error.message);
+        } finally {
             setLoading(false);
         }
     };
@@ -132,18 +135,20 @@ export default function DummyForm() {
 
                     {/* Pesan */}
                     <div>
-                        <label className="block text-sm font-medium text-neutral-300 mb-1">Pesan (Max 200 char)</label>
-                        <textarea maxLength="200" rows="3" placeholder="Pesan dukungan Anda..."
+                        <label className="block text-sm font-medium text-neutral-300 mb-1">Pesan (Opsional)</label>
+                        <textarea maxLength="200" rows="3" placeholder="Pesan untuk layar..."
+                            value={form.message}
                             className="w-full bg-neutral-800/50 rounded-xl p-3 outline-none border border-neutral-700 focus:border-red-500 transition resize-none"
                             onChange={(e) => setForm({ ...form, message: e.target.value })} />
                     </div>
 
-                    {/* YouTube Request & Live Preview */}
+                    {/* YouTube Request */}
                     <div className="p-4 bg-neutral-800/30 border border-neutral-700 rounded-xl space-y-3">
                         <label className="flex items-center gap-2 text-sm font-medium text-neutral-300">
-                            <Play className="text-red-500" size={18} /> Video YouTube / Link GIF (Opsional)
+                            <Play className="text-red-500" size={18} /> Video YouTube (Opsional)
                         </label>
-                        <input type="text" placeholder="Paste URL YouTube atau Link .gif..."
+                        <input type="text" placeholder="Paste URL YouTube..."
+                            value={form.youtube_url}
                             className="w-full bg-neutral-800/50 rounded-lg p-3 outline-none border border-neutral-700 focus:border-red-500 transition text-sm"
                             onChange={(e) => setForm({ ...form, youtube_url: e.target.value })} />
                         
@@ -182,7 +187,7 @@ export default function DummyForm() {
                                 : 'bg-gradient-to-r from-red-600 to-red-500 hover:from-red-500 hover:to-red-400 text-white shadow-red-500/30'
                         }`}
                     >
-                        {loading ? 'Mengirim ke OBS...' : (
+                        {loading ? 'Mengirim...' : (
                             isFormValid ? `Kirim Dummy Rp ${amountNum.toLocaleString('id-ID')}` : 'Lengkapi Form'
                         )} 
                         <Send size={18} />
