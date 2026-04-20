@@ -37,22 +37,44 @@ export default function OverlayPage() {
   const [currentAlert, setCurrentAlert] = useState(null);
   const isPlayingRef = useRef(false);
 
-  // MENDENGARKAN SUPABASE JALUR VVIP (Tanpa Cek Status)
+  // 🚀 RADAR PENYAPU DATA (JALUR BELAKANG ANTI-BADAI) 🚀
   useEffect(() => {
-    const channel = supabase.channel('public:dummy_donations');
-    channel
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'dummy_donations' }, (payload) => {
-        console.log("🔥 DATA MASUK DARI SUPABASE!", payload.new);
-        // Langsung masukkan ke antrean tanpa banyak syarat
-        setQueue((prev) => [...prev, payload.new]);
-      })
-      .subscribe((status) => {
-        console.log("🔌 STATUS REALTIME:", status);
-      });
+    // Catat waktu kapan overlay ini pertama kali dibuka
+    let lastCheckTime = new Date().toISOString();
 
-    return () => supabase.removeChannel(channel);
+    const fetchNewDonations = async () => {
+      // Tanya ke database: "Ada nggak data yang dibuat SETELAH waktu terakhir saya ngecek?"
+      const { data, error } = await supabase
+        .from('dummy_donations')
+        .select('*')
+        .gt('created_at', lastCheckTime)
+        .order('created_at', { ascending: true });
+
+      if (error) {
+        console.error("Error cek data:", error.message);
+        return;
+      }
+
+      // Kalau ada data baru ketangkap radar
+      if (data && data.length > 0) {
+        console.log(`🔥 RADAR NANGKAP ${data.length} DATA BARU!`, data);
+        
+        // Update waktu terakhir dengan waktu data terbaru yang masuk
+        lastCheckTime = data[data.length - 1].created_at;
+        
+        // Masukkan semuanya ke antrean tayang
+        setQueue((prev) => [...prev, ...data]);
+      }
+    };
+
+    // Jalankan radar setiap 2 detik sekali
+    const radarInterval = setInterval(fetchNewDonations, 2000);
+
+    // Matikan radar kalau halaman ditutup
+    return () => clearInterval(radarInterval);
   }, []);
 
+  // PROSES ANTREAN
   useEffect(() => {
     if (hasInteracted && queue.length > 0 && !isPlayingRef.current) {
       processAlert(queue[0]);
@@ -76,20 +98,15 @@ export default function OverlayPage() {
       const audio = new Audio(sfxUrl);
       audio.volume = 1.0; 
       await audio.play();
-    } catch (e) {
-      console.log("Suara diblokir browser, tapi animasi tetap lanjut");
-    }
+    } catch (e) {}
 
     await new Promise(resolve => setTimeout(resolve, displayDuration));
-
     setCurrentAlert(null);
     await new Promise(resolve => setTimeout(resolve, 1000));
-
     setQueue((prev) => prev.slice(1));
     isPlayingRef.current = false;
   };
 
-  // TOMBOL TEST MANUAL UNTUK CEK UI
   const triggerTestAlert = () => {
     setQueue((prev) => [...prev, {
       username: "Tester", amount: 69420, message: "Ini tes UI dari tombol lokal!", youtube_url: null
@@ -109,7 +126,6 @@ export default function OverlayPage() {
     );
   }
 
-  // TAMPILAN STANDBY (Dengan tombol Test Kecil di pojok)
   if (!currentAlert) {
     return (
       <div className="w-screen h-screen bg-transparent overflow-hidden relative">
@@ -138,7 +154,6 @@ export default function OverlayPage() {
   }
 
   return (
-    // DIUBAH MENJADI TEPAT DI TENGAH LAYAR (justify-center) AGAR TIDAK NYUNGSEP
     <div className="w-screen h-screen bg-transparent flex flex-col items-center justify-center overflow-hidden pointer-events-none relative">
       <div className="flex flex-col items-center animate-bounce">
         
