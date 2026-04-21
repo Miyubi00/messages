@@ -1,28 +1,26 @@
-import { useState, useMemo, useEffect, useRef } from "react";
-import { FaDiscord, FaGlobe } from "react-icons/fa";
-import { SiRoblox } from "react-icons/si";
-import MessageCard from "./MessageCard";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "../lib/supabase";
 
+// Komponen & Hook yang sudah dipisah
+import { OWNER, CONFIG } from "../utils/constants";
+import { useMessages } from "../hooks/useMessages";
+import MessageCard from "./MessageCard"; // Pastikan path ini benar
+import BackgroundShapes from "../components/BackgroundShapes";
+import ProfileHeader from "../components/ProfileHeader";
+import WebsitePopup from "../components/WebsitePopup";
 
-export default function App() {
-    // OWNER
-    const ownerName = "Miyubi0_0";
-    const ownerUsername = "ceunah0_0";
-    const ownerTag = "They/Was";
-    const MAX_NAME = 20;
-    const MAX_MESSAGE = 100;
-    const COOLDOWN_SECONDS = 10;
-    const ROBLOX_PROFILE_URL = "https://www.roblox.com/id/users/7705382131/profile";
-    const DISCORD_PROFILE_URL = "https://discord.com/users/1027921201194082425";
+export default function PublicPage() {
     const topRef = useRef(null);
     const messagesRef = useRef(null);
 
-
-    // SENDER
+    // STATE AUTH & UI
     const [user, setUser] = useState(null);
     const isOwner = !!user;
     const [sessionId, setSessionId] = useState(null);
+    const [showMessages, setShowMessages] = useState(false);
+    const [showWebPopup, setShowWebPopup] = useState(false);
+
+    // STATE FORM
     const [senderName, setSenderName] = useState("");
     const [anon, setAnon] = useState(false);
     const [message, setMessage] = useState("");
@@ -30,190 +28,56 @@ export default function App() {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
     const [success, setSuccess] = useState(false);
-    const [showMessages, setShowMessages] = useState(false);
-    const [showWebPopup, setShowWebPopup] = useState(false);
-    const myWebsites = [
-        { name: "Project Cek Follower", url: "https://followercheck.vercel.app" },
-        { name: "Project Chat App", url: "https://onetimechat.vercel.app" },
-        { name: "Project MyRobux", url: "https://myrobux.vercel.app" },
-        { name: "Project Web Afiliate", url: "https://myaffiliate.vercel.app" },
-        { name: "Project Map Gunung Roblox", url: "https://www.roblox.com/id/games/84794486682074/Mount-GPT" },  
-        // Tambahkan web lain di sini
-    ];
+    const [spotifyLink, setSpotifyLink] = useState("");
+    const [imageFile, setImageFile] = useState(null);
+    const [imagePreview, setImagePreview] = useState(null);
 
-    const [rows, setRows] = useState([]);
-    const [loadingMessages, setLoadingMessages] = useState(true);
+    // Ambil logika database dari Custom Hook
+    const {
+        messages, unreadCount, send,
+        handleReply, handleDelete, handleDeleteReply
+    } = useMessages(sessionId, isOwner, OWNER.name);
 
     useEffect(() => {
-        supabase.auth.getSession().then(({ data }) => {
-            setUser(data.session?.user ?? null);
+        // 1. Logika session ID anonim
+        let sid = localStorage.getItem("anon_session_id");
+        if (!sid) {
+            sid = crypto.randomUUID();
+            localStorage.setItem("anon_session_id", sid);
+        }
+        setSessionId(sid);
+
+        // 2. Logika cek login Supabase
+        supabase.auth.getSession().then(({ data }) => setUser(data.session?.user ?? null));
+        const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+            setUser(session?.user ?? null);
         });
 
-        const { data: listener } = supabase.auth.onAuthStateChange(
-            (_event, session) => {
-                setUser(session?.user ?? null);
+        // 3. LOGIKA BARU: TARIK DATA SPOTIFY DARI DATABASE
+        async function fetchSettings() {
+            const { data, error } = await supabase
+                .from('settings')
+                .select('spotify_url')
+                .limit(1)
+                .single();
+
+            if (error) {
+                console.error("Gagal mengambil lagu:", error.message);
+            } else if (data && data.spotify_url) {
+                setSpotifyLink(data.spotify_url);
             }
-        );
+        }
+
+        fetchSettings();
 
         return () => listener.subscription.unsubscribe();
     }, []);
 
     useEffect(() => {
-        let sid = localStorage.getItem("anon_session_id");
-
-        if (!sid) {
-            sid = crypto.randomUUID();
-            localStorage.setItem("anon_session_id", sid);
-        }
-
-        setSessionId(sid);
-    }, []);
-
-    useEffect(() => {
-        fetchMessages();
-    }, []);
-
-    useEffect(() => {
-        const channel = supabase
-            .channel("realtime-messages")
-            .on(
-                "postgres_changes",
-                {
-                    event: "*",
-                    schema: "public",
-                    table: "messages"
-                },
-                payload => {
-                    const { eventType, new: newRow, old } = payload;
-
-                    setRows(prev => {
-                        if (eventType === "INSERT") {
-                            // hindari duplikat
-                            if (prev.some(r => r.id === newRow.id)) return prev;
-                            return [...prev, newRow];
-                        }
-
-                        if (eventType === "UPDATE") {
-                            return prev.map(r =>
-                                r.id === newRow.id ? newRow : r
-                            );
-                        }
-
-                        if (eventType === "DELETE") {
-                            return prev.filter(r => r.id !== old.id);
-                        }
-
-                        return prev;
-                    });
-                }
-            )
-            .subscribe();
-
-        return () => {
-            supabase.removeChannel(channel);
-        };
-    }, []);
-
-
-    async function fetchMessages() {
-        setLoadingMessages(true);
-
-        const { data, error } = await supabase
-            .from("messages")
-            .select("*")
-            .order("created_at", { ascending: false });
-
-        if (error) {
-            console.error(error);
-        } else {
-            setRows(data);
-        }
-
-        setLoadingMessages(false);
-    }
-
-    function buildThreads(data, sessionId) {
-        const map = {};
-        const roots = [];
-
-        // buat map
-        data.forEach(m => {
-            map[m.id] = {
-                id: m.id,
-                sender: m.sender_name,
-                content: m.content,
-                created_at: m.created_at,
-                session_id: m.session_id,
-                parent_id: m.parent_id,
-                is_unread: m.is_unread,
-                replies: []
-            };
-        });
-
-        // cari root message untuk tiap item
-        data.forEach(m => {
-            if (!m.parent_id) {
-                roots.push(map[m.id]);
-            } else {
-                let parent = map[m.parent_id];
-
-                // 🔥 naik terus sampai ketemu root
-                while (parent && parent.parent_id) {
-                    parent = map[parent.parent_id];
-                }
-
-                // sekarang parent adalah root
-                parent?.replies.push(map[m.id]);
-            }
-        });
-
-        // urutkan reply
-        roots.forEach(r => {
-            r.replies.sort(
-                (a, b) => new Date(a.created_at) - new Date(b.created_at)
-            );
-        });
-
-        roots.forEach(r => {
-            const lastSeen = JSON.parse(
-                localStorage.getItem("last_seen_time") || "{}"
-            );
-
-            r.hasUnread =
-                r.session_id === sessionId &&
-                r.replies.some(rep => {
-                    if (rep.session_id !== null) return false; // hanya owner
-                    if (!rep.is_unread) return false;
-
-                    const seenTime = lastSeen[r.id];
-                    if (!seenTime) return true;
-
-                    return new Date(rep.created_at) > new Date(seenTime);
-                });
-        });
-
-        roots.sort((a, b) => {
-            if (a.hasUnread && !b.hasUnread) return -1;
-            if (!a.hasUnread && b.hasUnread) return 1;
-            return new Date(b.created_at) - new Date(a.created_at);
-        });
-
-        return roots;
-    }
-
-    const messages = useMemo(
-        () => buildThreads(rows, sessionId),
-        [rows, sessionId]
-    );
-
-    const unreadCount = useMemo(() => {
-        if (!sessionId) return 0;
-
-        return messages.filter(
-            m => m.hasUnread && m.session_id === sessionId
-        ).length;
-    }, [messages, sessionId]);
-
+        if (cooldown <= 0) return;
+        const timer = setInterval(() => setCooldown((c) => c - 1), 1000);
+        return () => clearInterval(timer);
+    }, [cooldown]);
 
     function toggleAnon(value) {
         setAnon(value);
@@ -221,415 +85,113 @@ export default function App() {
         setError("");
     }
 
-    useEffect(() => {
-        if (cooldown <= 0) return;
-
-        const timer = setInterval(() => {
-            setCooldown((c) => c - 1);
-        }, 1000);
-
-        return () => clearInterval(timer);
-    }, [cooldown]);
-
-    async function send() {
+    async function handleSendClick() {
         setError("");
-        setSuccess(false);
-
-        if (!sessionId) {
-            setError("Session belum siap, refresh halaman.");
-            return;
-        }
-
-        if (cooldown > 0) {
-            setError(`Tunggu ${cooldown} detik sebelum mengirim lagi.`);
-            return;
-        }
-
-        if (!isOwner && !anon && !senderName.trim()) {
-            setError("Isi nama atau aktifkan mode anonim.");
-            return;
-        }
-
-        if (!message.trim()) {
-            setError("Pesan tidak boleh kosong.");
-            return;
-        }
+        if (!sessionId) return setError("Session belum siap, refresh halaman.");
+        if (cooldown > 0) return setError(`Tunggu ${cooldown} detik sebelum mengirim lagi.`);
+        if (!isOwner && !anon && !senderName.trim()) return setError("Isi nama atau aktifkan mode anonim.");
+        // Boleh ngirim pesan kosong ASALKAN ada gambarnya
+        if (!message.trim() && !imageFile) return setError("Pesan atau gambar tidak boleh kosong.");
 
         setLoading(true);
+        try {
+            let uploadedImageUrl = null;
 
-        // 🔑 IDENTITAS PENGIRIM
-        const sender_name = isOwner
-            ? ownerName
-            : anon
-                ? "Anonymous"
-                : senderName;
+            // PROSES UPLOAD GAMBAR KE SUPABASE STORAGE
+            if (imageFile) {
+                const fileExt = imageFile.name.split('.').pop();
+                const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
 
-        const messageSessionId = isOwner ? null : sessionId;
+                const { error: uploadError } = await supabase.storage
+                    .from('attachments')
+                    .upload(fileName, imageFile);
 
-        // 🔥 INSERT KE SUPABASE
-        const { data, error } = await supabase
-            .from("messages")
-            .insert({
-                sender_name,
-                content: message,
-                parent_id: null,
-                session_id: messageSessionId
-            })
-            .select()
-            .single();
+                if (uploadError) throw new Error("Gagal mengupload gambar.");
 
-        if (error) {
-            console.error(error);
-            setError("Gagal mengirim pesan.");
+                // Dapatkan link public-nya
+                const { data: publicUrlData } = supabase.storage
+                    .from('attachments')
+                    .getPublicUrl(fileName);
+
+                uploadedImageUrl = publicUrlData.publicUrl;
+            }
+
+            // Kirim pesan + link gambar ke fungsi send
+            await send(senderName, message, anon, uploadedImageUrl);
+
+            // Bersihkan form
+            setMessage("");
+            setSenderName(anon ? "Anonymous" : "");
+            setImageFile(null);
+            setImagePreview(null);
+            setSuccess(true);
+            setCooldown(CONFIG.COOLDOWN_SECONDS);
+            setTimeout(() => setSuccess(false), 3000);
+        } catch (err) {
+            setError(err.message || "Gagal mengirim pesan.");
+        } finally {
             setLoading(false);
+        }
+    }
+
+    // FUNGSI UNTUK MEMILIH GAMBAR
+    function handleImageChange(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        // Validasi 2MB (2 * 1024 * 1024 bytes)
+        if (file.size > 2 * 1024 * 1024) {
+            setError("Ukuran gambar maksimal 2MB!");
             return;
         }
 
-        setRows(prev => [...prev, data]);
-
-        await fetch("/api/discord", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                type: "message",
-                sender: sender_name,
-                content: message
-            })
-        });
-
-        setMessage("");
-        setSenderName("");
-        setSuccess(true);
-        setCooldown(COOLDOWN_SECONDS);
-
-        setTimeout(() => setSuccess(false), 3000);
-        setLoading(false);
+        setImageFile(file);
+        setImagePreview(URL.createObjectURL(file));
+        setError("");
     }
-
-    function findRootMessage(messageId) {
-        let current = rows.find(m => m.id === messageId);
-
-        while (current && current.parent_id) {
-            current = rows.find(m => m.id === current.parent_id);
-        }
-
-        return current;
-    }
-
-    async function handleReply(messageId, text, parentReplyId = null) {
-        if (!sessionId) return;
-
-        const root = findRootMessage(parentReplyId ?? messageId);
-
-        const isMyThread = root?.session_id === sessionId;
-
-        if (!isOwner && !isMyThread) {
-            alert("Kamu hanya bisa membalas pesan milikmu sendiri.");
-            return;
-        }
-
-        // 🔑 IDENTITAS PENGIRIM YANG BENAR
-        const sender_name = isOwner
-            ? ownerName
-            : root?.sender_name || "Anonymous";
-
-        const replySessionId = isOwner ? null : sessionId;
-
-        const { data, error } = await supabase
-            .from("messages")
-            .insert({
-                sender_name,
-                content: text,
-                parent_id: parentReplyId ?? messageId,
-                session_id: replySessionId,
-                is_unread: isOwner
-            })
-            .select()
-            .single();
-
-        if (!error) {
-            setRows(prev => [...prev, data]);
-        }
-
-        await fetch("/api/discord", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                type: "reply",
-                sender: sender_name,
-                content: text,
-                repliedTo: root?.content?.slice(0, 100)
-            })
-        });
-    }
-
-    async function handleDelete(messageId) {
-        if (!isOwner) return;
-        if (!confirm("Hapus pesan ini?")) return;
-
-        await supabase.from("messages").delete().eq("id", messageId);
-        setRows(prev => prev.filter(m => m.id !== messageId));
-    }
-
-    async function handleDeleteReply(_, replyId) {
-        if (!confirm("Hapus balasan ini?")) return;
-
-        await supabase.from("messages").delete().eq("id", replyId);
-        setRows(prev => prev.filter(m => m.id !== replyId));
-    }
-
-
-    const shapes = useMemo(() => {
-        const types = ["circle", "square", "triangle", "cross"];
-
-        return Array.from({ length: 70 }).map(() => {
-            return {
-                type: types[Math.floor(Math.random() * types.length)],
-                left: Math.random() * 100,
-                drift: Math.random() * 200 - 100,
-                duration: Math.random() * 25 + 20,
-                delay: Math.random() * -45
-            };
-        });
-    }, []);
 
     return (
-        <div
-            className="
-            flex flex-col
-            min-h-screen
-            px-4
-            items-center gap-6 relative
-          "
-        >
+        <div className="flex flex-col min-h-screen px-4 items-center gap-6 relative">
 
-            {/* FLOATING SHAPES BACKGROUND */}
-            <div
-                className="
-                bg-shapes
-              "
-            >
-                {shapes.map((s, i) => (
-                    <div
-                        key={i}
-                        style={{
-                            left: `${s.left}%`,
-                            animationDuration: `${s.duration}s`,
-                            animationDelay: `${s.delay}s`,
-                            transform: `translateX(${s.drift}px)`
-                        }}
-                        className={`
-                        shape ${s.type}
-                      `}
-                    />
-                ))}
-            </div>
+            <BackgroundShapes />
 
-            {/* CARD */}
-            {/* HERO ZONE (CENTER SPACE) */}
-            <div
-                ref={topRef}
-                className="
-                flex
-                w-full
-                pt-24 pb-1
-                justify-center
-                md:pt-32 md:pb-1
-              "
-            >
+            <div ref={topRef} className="flex w-full pt-24 pb-1 justify-center md:pt-32 md:pb-1">
+                <div className="w-full max-w-md p-[3px] rounded-2xl animate-border-rotate card-wrapper relative">
+                    <div className="overflow-hidden bg-gradient-to-b from-white to-[#B4B6F6] rounded-2xl">
 
-                <div
-                    className="
-                    w-full max-w-md
-                    p-[3px]
-                    rounded-2xl
-                    animate-border-rotate
-                    card-wrapper relative
-                  "
-                >
-                    <div
-                        className="
-                        overflow-hidden
-                        bg-gradient-to-b from-white to-[#B4B6F6]
-                        rounded-2xl
-                      "
-                    >
+                        {/* INI DIA PERBAIKANNYA: Menambahkan spotifyUrl={spotifyLink} */}
+                        <ProfileHeader
+                            onOpenWebsites={() => setShowWebPopup(true)}
+                            spotifyUrl={spotifyLink}
+                        />
 
-                        {/* BANNER + AVATAR */}
-                        <div
-                            className="
-                            relative
-                          "
-                        >
-                            <img
-                                src="/banner.gif"
-                                alt="banner"
-                                className="
-                                object-cover
-                                w-full h-32
-                              "
-                            />
+                        {/* CONTENT FORM */}
+                        <div className="px-6 pt-6 pb-6">
+                            <h1 className="mb-1 mt-2 text-sm font-medium text-purple-600">Send Message?</h1>
 
-                            {/* AVATAR (NAIK KE BANNER) */}
-                            <img
-                                src="/avatar.gif"
-                                alt="avatar"
-                                className="
-                                w-28 h-28
-                                bg-white
-                                rounded-full border-4 border-white
-                                shadow-lg
-                                absolute -bottom-10 left-6
-                              "
-                            />
-                        </div>
-
-                        {/* PROFILE TEXT */}
-                        <div
-                            className="
-                            flex
-                            px-6 pt-16
-                            items-start gap-4
-                          "
-                        >
-                            <div>
-                                <div
-                                    className="
-                                    flex
-                                    items-center gap-2
-                                  "
-                                >
-                                    <p
-                                        style={{ fontFamily: "'Press Start 2P', cursive" }}
-                                        className="
-                                        text-lg text-purple-600 font-bold
-                                        animate-owner-float
-                                        drop-shadow-[2px_2px_0_rgba(0,0,0,0.35)]
-                                      "
-                                    >
-                                        {ownerName}
-                                    </p>
-
-                                    {/* ROBLOX ICON */}
-                                    <a
-                                        href={ROBLOX_PROFILE_URL}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        title="Roblox Profile"
-                                        className="
-                                        flex
-                                        w-5 h-5
-                                        bg-[#325DF8]
-                                        rounded-[3px]
-                                        animate-owner-float
-                                        items-center justify-center hover:scale-110 transition
-                                      "
-                                    >
-                                        <SiRoblox
-                                            className="
-                                            w-3.5 h-3.5
-                                            text-white
-                                          "
-                                        />
-                                    </a>
-
-                                </div>
-                                <div className="flex mt-1 animate-owner-float items-center gap-2">
-                                    <p className="text-sm text-gray-500">
-                                        @{ownerUsername} • {ownerTag}
-                                    </p>
-
-                                    {/* DISCORD ICON (YANG LAMA) */}
-                                    <a
-                                        href={DISCORD_PROFILE_URL}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        title="Discord"
-                                    >
-                                        <FaDiscord className="w-3.5 h-3.5 text-[#5865F2] opacity-80 hover:opacity-100 hover:scale-110 transition" />
-                                    </a>
-
-                                    {/* --- ICON WEB BARU (DI SINI) --- */}
-                                    <button
-                                        onClick={() => setShowWebPopup(true)}
-                                        title="My Websites"
-                                        className="focus:outline-none"
-                                    >
-                                        <FaGlobe className="w-3.5 h-3.5 text-emerald-500 opacity-80 hover:opacity-100 hover:scale-110 transition" />
-                                    </button>
-                                    {/* ------------------------------- */}
-                                </div>
-                            </div>
-                        </div>
-
-
-                        {/* CONTENT */}
-                        <div
-                            className="
-                            px-6 pt-6 pb-6
-                          "
-                        >
-                            <h1
-                                className="
-                                mb-1 mt-2
-                                text-sm font-medium text-purple-600
-                              "
-                            >
-                                Send Message?
-                            </h1>
-
-                            <div
-                                className="
-                                mb-3
-                                relative
-                              "
-                            >
+                            {/* Input Nama */}
+                            <div className="mb-3 relative">
                                 <input
                                     type="text"
                                     placeholder="Nama anda"
                                     value={senderName}
                                     disabled={anon}
-                                    maxLength={MAX_NAME}
+                                    maxLength={CONFIG.MAX_NAME}
                                     onChange={(e) => {
                                         setSenderName(e.target.value);
                                         setError("");
                                     }}
-                                    className={`
-                                    w-full
-                                    p-3
-                                    rounded-lg border border-purple-400
-                                    focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-300
-                                    ${anon ? "bg-gray-100 text-gray-500" : ""}
-                                  `}
+                                    className={`w-full p-3 rounded-lg border border-purple-400 focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-300 ${anon ? "bg-gray-100 text-gray-500" : ""}`}
                                 />
-
-                                {/* COUNTER */}
                                 {!anon && (
-                                    <span
-                                        className={`
-                                        text-xs
-                                        absolute bottom-1 right-2
-                                        ${senderName.length >= MAX_NAME
-                                                ? "text-red-500"
-                                                : senderName.length > MAX_NAME - 5
-                                                    ? "text-yellow-500"
-                                                    : "text-gray-400"}
-                                      `}
-                                    >
-                                        {senderName.length}/{MAX_NAME}
+                                    <span className={`text-xs absolute bottom-1 right-2 ${senderName.length >= CONFIG.MAX_NAME ? "text-red-500" : senderName.length > CONFIG.MAX_NAME - 5 ? "text-yellow-500" : "text-gray-400"}`}>
+                                        {senderName.length}/{CONFIG.MAX_NAME}
                                     </span>
                                 )}
                             </div>
 
-                            <label
-                                className="
-                                flex
-                                mb-4
-                                text-sm
-                                cursor-pointer
-                                items-center gap-2
-                              "
-                            >
+                            {/* Checkbox Anonim */}
+                            <label className="flex mb-4 text-sm cursor-pointer items-center gap-2">
                                 <input
                                     type="checkbox"
                                     checked={anon}
@@ -639,104 +201,91 @@ export default function App() {
                                 Kirim sebagai anonim
                             </label>
 
-                            <div
-                                className="
-                                mb-3
-                                relative
-                              "
-                            >
+                            {/* AREA INPUT PESAN & GAMBAR (UNIFIED UI) */}
+                            <div className="mb-4 flex flex-col relative w-full rounded-xl border border-purple-400 bg-white p-3 focus-within:border-purple-500 focus-within:ring-2 focus-within:ring-purple-300 transition-all">
+
+                                {/* Icon Upload (Hanya muncul di pojok kanan atas jika belum ada gambar) */}
+                                {!imagePreview && (
+                                    <label className="absolute top-3 right-3 cursor-pointer text-gray-600 hover:text-purple-600 transition-colors z-10" title="Tambahkan Gambar">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                                            <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                                            <polyline points="21 15 16 10 5 21"></polyline>
+                                            <line x1="16" y1="5" x2="22" y2="5"></line>
+                                            <line x1="19" y1="2" x2="19" y2="8"></line>
+                                        </svg>
+                                        <input
+                                            type="file"
+                                            accept="image/png, image/jpeg, image/gif, image/webp"
+                                            className="hidden"
+                                            onChange={handleImageChange}
+                                        />
+                                    </label>
+                                )}
+
+                                {/* Header: Preview Gambar (Muncul di kiri atas jika ada gambar) */}
+                                {imagePreview && (
+                                    <div className="relative mb-3 w-16 h-16 shrink-0 animate-fade-in">
+                                        <img
+                                            src={imagePreview}
+                                            alt="Preview"
+                                            className="w-full h-full object-cover rounded-xl border border-purple-200 shadow-sm"
+                                        />
+                                        <button
+                                            onClick={() => { setImageFile(null); setImagePreview(null); }}
+                                            className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-[10px] font-bold hover:bg-red-600 shadow-md transition-transform active:scale-90"
+                                        >
+                                            ✕
+                                        </button>
+                                    </div>
+                                )}
+
+                                {/* Textarea Pesan yang Transparan */}
                                 <textarea
                                     placeholder="Tulis pesan..."
                                     value={message}
-                                    maxLength={MAX_MESSAGE}
+                                    maxLength={CONFIG.MAX_MESSAGE}
                                     onChange={(e) => {
                                         setMessage(e.target.value);
                                         setError("");
                                     }}
-                                    className="
-                                    w-full h-28
-                                    p-3 pb-7
-                                    rounded-lg border border-purple-400
-                                    resize-none
-                                    focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-300
-                                  "
+                                    className={`w-full min-h-[80px] resize-none bg-transparent outline-none text-sm text-gray-700 placeholder-gray-400 ${!imagePreview ? 'pr-8' : ''}`}
                                 />
 
-
-                                {/* COUNTER */}
-                                <span
-                                    className={`
-                                    text-xs
-                                    pointer-events-none
-                                    absolute bottom-3 right-2
-                                    ${message.length >= MAX_MESSAGE
-                                            ? "text-red-500"
-                                            : message.length > MAX_MESSAGE - 20
-                                                ? "text-yellow-500"
-                                                : "text-gray-400"}
-                                  `}
-                                >
-                                    {message.length}/{MAX_MESSAGE}
-                                </span>
-
+                                {/* Counter di Pojok Kanan Bawah */}
+                                <div className="text-right mt-1">
+                                    <span className={`text-xs font-medium tracking-wide ${message.length >= CONFIG.MAX_MESSAGE ? "text-red-500" : message.length > CONFIG.MAX_MESSAGE - 20 ? "text-yellow-500" : "text-gray-400"}`}>
+                                        {message.length}/{CONFIG.MAX_MESSAGE}
+                                    </span>
+                                </div>
                             </div>
 
-                            {/* ERROR POPUP */}
+                            {/* Error & Success Notification */}
                             {error && (
-                                <div
-                                    className="
-                                    mb-3
-                                    error-popup
-                                  "
-                                >
-                                    <span
-                                        className="
-                                        text-lg
-                                      "
-                                    >⚠️</span>
+                                <div className="mb-3 error-popup">
+                                    <span className="text-lg">⚠️</span>
                                     <span>{error}</span>
                                 </div>
                             )}
 
                             {cooldown > 0 && (
-                                <div
-                                    className="
-                                    mb-3
-                                    text-xs text-yellow-600 text-center
-                                  "
-                                >
+                                <div className="mb-3 text-xs text-yellow-600 text-center">
                                     ⏳ Kirim ulang dalam <b>{cooldown}</b> detik
                                 </div>
                             )}
 
                             {success && (
-                                <div
-                                    className="
-                                    mb-3
-                                    success-popup
-                                  "
-                                >
-                                    <span
-                                        className="
-                                        text-lg
-                                      "
-                                    >✅</span>
+                                <div className="mb-3 success-popup">
+                                    <span className="text-lg">✅</span>
                                     <span>Pesan berhasil dikirim!</span>
                                 </div>
                             )}
 
+                            {/* Tombol Kirim */}
                             <button
-                                onClick={send}
+                                onClick={handleSendClick}
                                 disabled={loading || cooldown > 0}
-                                className="
-                                w-full
-                                py-3
-                                text-white font-semibold
-                                bg-gradient-to-r from-purple-500 via-fuchsia-500 to-purple-700
-                                rounded-lg
-                                animate-gradient shadow-[0_0_20px_rgba(168,85,247,0.6)] transition-all
-                                hover:shadow-[0_0_30px_rgba(168,85,247,0.9)] hover:-translate-y-[1px] duration-300 disabled:opacity-50 disabled:animate-none
-                              "
+                                className="w-full py-3 text-white font-semibold bg-gradient-to-r from-purple-500 via-fuchsia-500 to-purple-700 rounded-lg animate-gradient shadow-[0_0_20px_rgba(168,85,247,0.6)] transition-all hover:shadow-[0_0_30px_rgba(168,85,247,0.9)] hover:-translate-y-[1px] duration-300 disabled:opacity-50 disabled:animate-none"
                             >
                                 {loading ? "Mengirim..." : "Kirim"}
                             </button>
@@ -744,102 +293,36 @@ export default function App() {
                     </div>
                 </div>
             </div>
+
+            {/* BUTTON LIHAT PESAN */}
             {!showMessages && (
-                <div
-                    className="
-                    flex
-                    mt-1
-                    justify-center
-                  "
-                >
+                <div className="flex mt-1 justify-center">
                     <button
                         onClick={async () => {
-                            await supabase
-                                .from("messages")
-                                .update({ is_unread: false })
-                                .eq("session_id", null)
-                                .in(
-                                    "parent_id",
-                                    messages
-                                        .filter(m => m.session_id === sessionId)
-                                        .map(m => m.id)
-                                );
-
                             setShowMessages(true);
-
                             setTimeout(() => {
-                                messagesRef.current?.scrollIntoView({
-                                    behavior: "smooth",
-                                    block: "start"
-                                });
+                                messagesRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
                             }, 50);
                         }}
-                        className="
-    text-sm text-purple-600 font-medium
-    animate-pulse
-    hover:underline
-  "
+                        className="text-sm text-purple-600 font-medium animate-pulse hover:underline"
                     >
-                        {unreadCount > 0
-                            ? `🔴 ${unreadCount} pesan baru!`
-                            : "✨ Lihat pesan"}
+                        {unreadCount > 0 ? `🔴 ${unreadCount} pesan baru!` : "✨ Lihat pesan"}
                     </button>
                 </div>
             )}
 
-            {/* MESSAGES */}
+            {/* MESSAGE LIST */}
             {showMessages && (
-                <div
-                    ref={messagesRef}
-                    className="
-                    w-full max-w-md
-                    mt-1 pb-24
-                    md:max-w-4xl
-                  "
-                >
-
-                    <div
-                        className="
-                        overflow-hidden
-                        px-5 py-5
-                        bg-gradient-to-b from-[#f9f7f5] to-[#B4B6F6]
-                        rounded-2xl border
-                        shadow-sm animate-border-rotate
-                      "
-                    >
-                        {/* HEADER */}
-                        <div
-                            className="
-                            flex
-                            mb-6
-                            items-center justify-between
-                          "
-                        >
-                            <h2
-                                className="
-                                text-sm font-medium text-purple-600
-                              "
-                            >
-                                💬 Messages
-                            </h2>
-
-                            <button
-                                onClick={() => setShowMessages(false)}
-                                className="
-                                text-xs text-gray-400
-                                hover:text-red-500
-                              "
-                            >
+                <div ref={messagesRef} className="w-full max-w-md mt-1 pb-24 md:max-w-4xl">
+                    <div className="overflow-hidden px-5 py-5 bg-gradient-to-b from-[#f9f7f5] to-[#B4B6F6] rounded-2xl border shadow-sm animate-border-rotate">
+                        <div className="flex mb-6 items-center justify-between">
+                            <h2 className="text-sm font-medium text-purple-600">💬 Messages</h2>
+                            <button onClick={() => setShowMessages(false)} className="text-xs text-gray-400 hover:text-red-500">
                                 ✖ Tutup
                             </button>
                         </div>
 
-                        {/* LIST */}
-                        <div
-                            className="
-                            space-y-4
-                          "
-                        >
+                        <div className="space-y-4">
                             {messages.map(msg => (
                                 <MessageCard
                                     key={msg.id}
@@ -852,91 +335,11 @@ export default function App() {
                                 />
                             ))}
                         </div>
-
-                        {/* BACK TO TOP */}
-                        <div
-                            className="
-                            flex
-                            mt-8
-                            justify-center
-                          "
-                        >
-                            <button
-                                onClick={() => {
-                                    setShowMessages(false);
-                                    topRef.current?.scrollIntoView({ behavior: "smooth" });
-                                }}
-                                className="
-                                text-xs text-purple-600
-                                hover:underline
-                              "
-                            >
-                                ⬆ Kembali ke atas
-                            </button>
-                        </div>
                     </div>
                 </div>
             )}
-            {/* ... kode Messages kamu yang panjang di atas sini ... */}
 
-            {/* --- POPUP DAFTAR WEBSITE --- */}
-            {showWebPopup && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-fade-in">
-                    <div className="bg-white w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden animate-pop-in relative">
-
-                        {/* Header Popup */}
-                        <div className="bg-gradient-to-r from-purple-500 to-fuchsia-500 p-4 flex justify-between items-center">
-                            <h3 className="text-white font-bold text-lg flex items-center gap-2">
-                                <FaGlobe /> Website List
-                            </h3>
-                            <button
-                                onClick={() => setShowWebPopup(false)}
-                                className="text-white/80 hover:text-white font-bold text-xl"
-                            >
-                                ✖
-                            </button>
-                        </div>
-
-                        {/* List Website */}
-                        <div className="p-4 flex flex-col gap-3 max-h-[60vh] overflow-y-auto">
-                            {myWebsites.map((web, idx) => (
-                                <a
-                                    key={idx}
-                                    href={web.url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="
-                                        group flex items-center justify-between
-                                        p-3 rounded-xl border border-gray-100
-                                        hover:bg-purple-50 hover:border-purple-200 hover:shadow-md
-                                        transition-all duration-300
-                                    "
-                                >
-                                    <span className="font-medium text-gray-700 group-hover:text-purple-600">
-                                        {web.name}
-                                    </span>
-                                    <span className="text-gray-300 group-hover:translate-x-1 transition-transform">
-                                        ⮕
-                                    </span>
-                                </a>
-                            ))}
-
-                            {myWebsites.length === 0 && (
-                                <p className="text-center text-gray-400 text-sm py-4">
-                                    Belum ada website yang ditambahkan.
-                                </p>
-                            )}
-                        </div>
-
-                        {/* Footer Kecil */}
-                        <div className="bg-gray-50 p-3 text-center text-[10px] text-gray-400 uppercase tracking-widest">
-                            {ownerName}'s Projects
-                        </div>
-                    </div>
-                </div>
-            )}
-            {/* ---------------------------- */}
-
-        </div> // <--- Ini penutup div utama (App wrapper)
+            {showWebPopup && <WebsitePopup onClose={() => setShowWebPopup(false)} />}
+        </div>
     );
 }
