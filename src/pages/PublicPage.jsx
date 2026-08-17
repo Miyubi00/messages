@@ -11,13 +11,11 @@ import WebsitePopup from "../components/WebsitePopup";
 
 export default function PublicPage() {
     const topRef = useRef(null);
-    const messagesRef = useRef(null);
 
     // STATE AUTH & UI
     const [user, setUser] = useState(null);
     const isOwner = !!user;
     const [sessionId, setSessionId] = useState(null);
-    const [showMessages, setShowMessages] = useState(false);
     const [showWebPopup, setShowWebPopup] = useState(false);
 
     // STATE FORM
@@ -152,192 +150,165 @@ export default function PublicPage() {
 
     return (
         <div className="flex flex-col min-h-screen px-4 items-center gap-6 relative">
-
             <BackgroundShapes />
 
-            <div ref={topRef} className="flex w-full pt-24 pb-1 justify-center md:pt-32 md:pb-1">
-                <div className="w-full max-w-md p-[3px] rounded-2xl animate-border-rotate card-wrapper relative">
-                    <div className="overflow-hidden bg-gradient-to-b from-white to-[#B4B6F6] rounded-2xl">
-
-                        {/* INI DIA PERBAIKANNYA: Menambahkan spotifyUrl={spotifyLink} */}
-                        <ProfileHeader
-                            onOpenWebsites={() => setShowWebPopup(true)}
-                            spotifyUrl={spotifyLink}
-                        />
-
-                        {/* CONTENT FORM */}
-                        <div className="px-6 pt-6 pb-6">
-                            <h1 className="mb-1 mt-2 text-sm font-medium text-purple-600">Send Message?</h1>
-
-                            {/* Input Nama */}
-                            <div className="mb-3 relative">
-                                <input
-                                    type="text"
-                                    placeholder="Nama anda"
-                                    value={senderName}
-                                    disabled={anon}
-                                    maxLength={CONFIG.MAX_NAME}
-                                    onChange={(e) => {
-                                        setSenderName(e.target.value);
-                                        setError("");
-                                    }}
-                                    className={`w-full p-3 rounded-lg border border-purple-400 focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-300 ${anon ? "bg-gray-100 text-gray-500" : ""}`}
+            <div ref={topRef} className="w-full max-w-6xl pt-24 pb-12 md:pt-28">
+                <div className="grid gap-6 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] items-start">
+                    <div className="w-full lg:sticky lg:top-6">
+                        <div className="w-full max-w-md mx-auto p-[3px] rounded-2xl animate-border-rotate card-wrapper relative">
+                            <div className="overflow-hidden bg-gradient-to-b from-white to-[#B4B6F6] rounded-2xl">
+                                <ProfileHeader
+                                    onOpenWebsites={() => setShowWebPopup(true)}
+                                    spotifyUrl={spotifyLink}
                                 />
-                                {!anon && (
-                                    <span className={`text-xs absolute bottom-1 right-2 ${senderName.length >= CONFIG.MAX_NAME ? "text-red-500" : senderName.length > CONFIG.MAX_NAME - 5 ? "text-yellow-500" : "text-gray-400"}`}>
-                                        {senderName.length}/{CONFIG.MAX_NAME}
-                                    </span>
-                                )}
-                            </div>
 
-                            {/* Checkbox Anonim */}
-                            <label className="flex mb-4 text-sm cursor-pointer items-center gap-2">
-                                <input
-                                    type="checkbox"
-                                    checked={anon}
-                                    disabled={isOwner}
-                                    onChange={(e) => toggleAnon(e.target.checked)}
-                                />
-                                Kirim sebagai anonim
-                            </label>
+                                <div className="px-6 pt-6 pb-6">
+                                    <h1 className="mb-1 mt-2 text-sm font-medium text-purple-600">Send Message?</h1>
 
-                            {/* AREA INPUT PESAN & GAMBAR (UNIFIED UI) */}
-                            <div className="mb-4 flex flex-col relative w-full rounded-xl border border-purple-400 bg-white p-3 focus-within:border-purple-500 focus-within:ring-2 focus-within:ring-purple-300 transition-all">
-
-                                {/* Icon Upload (Hanya muncul di pojok kanan atas jika belum ada gambar) */}
-                                {!imagePreview && (
-                                    <label className="absolute top-3 right-3 cursor-pointer text-gray-600 hover:text-purple-600 transition-colors z-10" title="Tambahkan Gambar">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
-                                            <circle cx="8.5" cy="8.5" r="1.5"></circle>
-                                            <polyline points="21 15 16 10 5 21"></polyline>
-                                            <line x1="16" y1="5" x2="22" y2="5"></line>
-                                            <line x1="19" y1="2" x2="19" y2="8"></line>
-                                        </svg>
+                                    <div className="mb-3 relative">
                                         <input
-                                            type="file"
-                                            accept="image/png, image/jpeg, image/gif, image/webp"
-                                            className="hidden"
-                                            onChange={handleImageChange}
+                                            type="text"
+                                            placeholder="Nama anda"
+                                            value={senderName}
+                                            disabled={anon}
+                                            maxLength={CONFIG.MAX_NAME}
+                                            onChange={(e) => {
+                                                setSenderName(e.target.value);
+                                                setError("");
+                                            }}
+                                            className={`w-full p-3 rounded-lg border border-purple-400 focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-300 ${anon ? "bg-gray-100 text-gray-500" : ""}`}
                                         />
-                                    </label>
-                                )}
-
-                                {/* Header: Preview Gambar (Muncul di kiri atas jika ada gambar) */}
-                                {imagePreview && (
-                                    <div className="relative mb-3 w-16 h-16 shrink-0 animate-fade-in">
-                                        <img
-                                            src={imagePreview}
-                                            alt="Preview"
-                                            className="w-full h-full object-cover rounded-xl border border-purple-200 shadow-sm"
-                                        />
-                                        <button
-                                            onClick={() => { setImageFile(null); setImagePreview(null); }}
-                                            className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-[10px] font-bold hover:bg-red-600 shadow-md transition-transform active:scale-90"
-                                        >
-                                            ✕
-                                        </button>
+                                        {!anon && (
+                                            <span className={`text-xs absolute bottom-1 right-2 ${senderName.length >= CONFIG.MAX_NAME ? "text-red-500" : senderName.length > CONFIG.MAX_NAME - 5 ? "text-yellow-500" : "text-gray-400"}`}>
+                                                {senderName.length}/{CONFIG.MAX_NAME}
+                                            </span>
+                                        )}
                                     </div>
-                                )}
 
-                                {/* Textarea Pesan yang Transparan */}
-                                <textarea
-                                    placeholder="Tulis pesan..."
-                                    value={message}
-                                    maxLength={CONFIG.MAX_MESSAGE}
-                                    onChange={(e) => {
-                                        setMessage(e.target.value);
-                                        setError("");
-                                    }}
-                                    className={`w-full min-h-[80px] resize-none bg-transparent outline-none text-sm text-gray-700 placeholder-gray-400 ${!imagePreview ? 'pr-8' : ''}`}
-                                />
+                                    <label className="flex mb-4 text-sm cursor-pointer items-center gap-2">
+                                        <input
+                                            type="checkbox"
+                                            checked={anon}
+                                            disabled={isOwner}
+                                            onChange={(e) => toggleAnon(e.target.checked)}
+                                        />
+                                        Kirim sebagai anonim
+                                    </label>
 
-                                {/* Counter di Pojok Kanan Bawah */}
-                                <div className="text-right mt-1">
-                                    <span className={`text-xs font-medium tracking-wide ${message.length >= CONFIG.MAX_MESSAGE ? "text-red-500" : message.length > CONFIG.MAX_MESSAGE - 20 ? "text-yellow-500" : "text-gray-400"}`}>
-                                        {message.length}/{CONFIG.MAX_MESSAGE}
-                                    </span>
+                                    <div className="mb-4 flex flex-col relative w-full rounded-xl border border-purple-400 bg-white p-3 focus-within:border-purple-500 focus-within:ring-2 focus-within:ring-purple-300 transition-all">
+                                        {!imagePreview && (
+                                            <label className="absolute top-3 right-3 cursor-pointer text-gray-600 hover:text-purple-600 transition-colors z-10" title="Tambahkan Gambar">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                                                    <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                                                    <polyline points="21 15 16 10 5 21"></polyline>
+                                                    <line x1="16" y1="5" x2="22" y2="5"></line>
+                                                    <line x1="19" y1="2" x2="19" y2="8"></line>
+                                                </svg>
+                                                <input
+                                                    type="file"
+                                                    accept="image/png, image/jpeg, image/gif, image/webp"
+                                                    className="hidden"
+                                                    onChange={handleImageChange}
+                                                />
+                                            </label>
+                                        )}
+
+                                        {imagePreview && (
+                                            <div className="relative mb-3 w-16 h-16 shrink-0 animate-fade-in">
+                                                <img
+                                                    src={imagePreview}
+                                                    alt="Preview"
+                                                    className="w-full h-full object-cover rounded-xl border border-purple-200 shadow-sm"
+                                                />
+                                                <button
+                                                    onClick={() => { setImageFile(null); setImagePreview(null); }}
+                                                    className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-[10px] font-bold hover:bg-red-600 shadow-md transition-transform active:scale-90"
+                                                >
+                                                    ✕
+                                                </button>
+                                            </div>
+                                        )}
+
+                                        <textarea
+                                            placeholder="Tulis pesan..."
+                                            value={message}
+                                            maxLength={CONFIG.MAX_MESSAGE}
+                                            onChange={(e) => {
+                                                setMessage(e.target.value);
+                                                setError("");
+                                            }}
+                                            className={`w-full min-h-[80px] resize-none bg-transparent outline-none text-sm text-gray-700 placeholder-gray-400 ${!imagePreview ? 'pr-8' : ''}`}
+                                        />
+
+                                        <div className="text-right mt-1">
+                                            <span className={`text-xs font-medium tracking-wide ${message.length >= CONFIG.MAX_MESSAGE ? "text-red-500" : message.length > CONFIG.MAX_MESSAGE - 20 ? "text-yellow-500" : "text-gray-400"}`}>
+                                                {message.length}/{CONFIG.MAX_MESSAGE}
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    {error && (
+                                        <div className="mb-3 error-popup">
+                                            <span className="text-lg">⚠️</span>
+                                            <span>{error}</span>
+                                        </div>
+                                    )}
+
+                                    {cooldown > 0 && (
+                                        <div className="mb-3 text-xs text-yellow-600 text-center">
+                                            ⏳ Kirim ulang dalam <b>{cooldown}</b> detik
+                                        </div>
+                                    )}
+
+                                    {success && (
+                                        <div className="mb-3 success-popup">
+                                            <span className="text-lg">✅</span>
+                                            <span>Pesan berhasil dikirim!</span>
+                                        </div>
+                                    )}
+
+                                    <button
+                                        onClick={handleSendClick}
+                                        disabled={loading || cooldown > 0}
+                                        className="w-full py-3 text-white font-semibold bg-gradient-to-r from-purple-500 via-fuchsia-500 to-purple-700 rounded-lg animate-gradient shadow-[0_0_20px_rgba(168,85,247,0.6)] transition-all hover:shadow-[0_0_30px_rgba(168,85,247,0.9)] hover:-translate-y-[1px] duration-300 disabled:opacity-50 disabled:animate-none"
+                                    >
+                                        {loading ? "Mengirim..." : "Kirim"}
+                                    </button>
                                 </div>
                             </div>
+                        </div>
+                    </div>
 
-                            {/* Error & Success Notification */}
-                            {error && (
-                                <div className="mb-3 error-popup">
-                                    <span className="text-lg">⚠️</span>
-                                    <span>{error}</span>
-                                </div>
-                            )}
+                    <div className="w-full">
+                        <div className="overflow-hidden px-5 py-5 bg-gradient-to-b from-[#f9f7f5] to-[#B4B6F6] rounded-2xl border shadow-sm animate-border-rotate">
+                            <div className="flex mb-6 items-center justify-between">
+                                <h2 className="text-sm font-medium text-purple-600">
+                                    💬 Messages {unreadCount > 0 && <span className="text-red-500">({unreadCount} baru)</span>}
+                                </h2>
+                            </div>
 
-                            {cooldown > 0 && (
-                                <div className="mb-3 text-xs text-yellow-600 text-center">
-                                    ⏳ Kirim ulang dalam <b>{cooldown}</b> detik
-                                </div>
-                            )}
-
-                            {success && (
-                                <div className="mb-3 success-popup">
-                                    <span className="text-lg">✅</span>
-                                    <span>Pesan berhasil dikirim!</span>
-                                </div>
-                            )}
-
-                            {/* Tombol Kirim */}
-                            <button
-                                onClick={handleSendClick}
-                                disabled={loading || cooldown > 0}
-                                className="w-full py-3 text-white font-semibold bg-gradient-to-r from-purple-500 via-fuchsia-500 to-purple-700 rounded-lg animate-gradient shadow-[0_0_20px_rgba(168,85,247,0.6)] transition-all hover:shadow-[0_0_30px_rgba(168,85,247,0.9)] hover:-translate-y-[1px] duration-300 disabled:opacity-50 disabled:animate-none"
-                            >
-                                {loading ? "Mengirim..." : "Kirim"}
-                            </button>
+                            <div className="space-y-4">
+                                {messages.length === 0 ? (
+                                    <div className="rounded-xl border border-dashed border-purple-300 bg-white/60 p-6 text-center text-sm text-gray-500">
+                                        Belum ada pesan masuk.
+                                    </div>
+                                ) : messages.map(msg => (
+                                    <MessageCard
+                                        key={msg.id}
+                                        data={msg}
+                                        isOwner={isOwner}
+                                        sessionId={sessionId}
+                                        onReply={handleReply}
+                                        onDelete={handleDelete}
+                                        onDeleteReply={handleDeleteReply}
+                                    />
+                                ))}
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
-
-            {/* BUTTON LIHAT PESAN */}
-            {!showMessages && (
-                <div className="flex mt-1 justify-center">
-                    <button
-                        onClick={async () => {
-                            setShowMessages(true);
-                            setTimeout(() => {
-                                messagesRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-                            }, 50);
-                        }}
-                        className="text-sm text-purple-600 font-medium animate-pulse hover:underline"
-                    >
-                        {unreadCount > 0 ? `🔴 ${unreadCount} pesan baru!` : "✨ Lihat pesan"}
-                    </button>
-                </div>
-            )}
-
-            {/* MESSAGE LIST */}
-            {showMessages && (
-                <div ref={messagesRef} className="w-full max-w-md mt-1 pb-24 md:max-w-4xl">
-                    <div className="overflow-hidden px-5 py-5 bg-gradient-to-b from-[#f9f7f5] to-[#B4B6F6] rounded-2xl border shadow-sm animate-border-rotate">
-                        <div className="flex mb-6 items-center justify-between">
-                            <h2 className="text-sm font-medium text-purple-600">💬 Messages</h2>
-                            <button onClick={() => setShowMessages(false)} className="text-xs text-gray-400 hover:text-red-500">
-                                ✖ Tutup
-                            </button>
-                        </div>
-
-                        <div className="space-y-4">
-                            {messages.map(msg => (
-                                <MessageCard
-                                    key={msg.id}
-                                    data={msg}
-                                    isOwner={isOwner}
-                                    sessionId={sessionId}
-                                    onReply={handleReply}
-                                    onDelete={handleDelete}
-                                    onDeleteReply={handleDeleteReply}
-                                />
-                            ))}
-                        </div>
-                    </div>
-                </div>
-            )}
 
             {showWebPopup && <WebsitePopup onClose={() => setShowWebPopup(false)} />}
         </div>
